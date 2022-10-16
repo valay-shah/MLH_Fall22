@@ -2,15 +2,54 @@ import pandas as pd
 from PIL import Image
 import pytorch_lightning as pl
 import torch
+from torch import utils
 import torchvision
 from torchvision import transforms
 
 import os
 from typing import Callable, Dict, Literal, Optional
 
+class MURADataModule(pl.LightningDataModule):
+    def __init__(self, root_dir: Optional[str] = None, batch_size: int = 32):
+        super().__init__()
+        self.root_dir = root_dir
+        self.batch_size = batch_size
+        self.train_transforms = transforms.Compose([
+            transforms.Resize((32, 32)),
+            transforms.ToTensor()])
+        self.valid_transforms = transforms.Compose([
+            transforms.Resize((32, 32)),
+            transforms.ToTensor()])
+        self.test_transforms = transforms.Compose([
+            transforms.Resize((32, 32)),
+            transforms.ToTensor()])
 
-class MURA(torch.utils.data.Dataset):
+    def setup(self, stage: str):
+        self.train_dataset = MURA(
+            split='train',
+            root_dir=self.root_dir,
+            transform=self.train_transforms)
 
+        self.valid_dataset = MURA(
+            split='valid',
+            root_dir=self.root_dir,
+            transform=self.valid_transforms)
+
+        self.test_dataset = MURA(
+            split='test',
+            root_dir=self.root_dir,
+            transform=self.test_transforms)
+
+    def train_dataloader(self) -> utils.data.DataLoader:
+        return utils.data.DataLoader(self.train_dataset, batch_size=self.batch_size)
+
+    def valid_dataloader(self) -> utils.data.DataLoader:
+        return utils.data.DataLoader(self.valid_dataset, batch_size=self.batch_size)
+
+    def test_dataloader(self) -> utils.data.DataLoader:
+        return utils.data.DataLoader(self.test_dataset, batch_size=self.batch_size)
+
+class MURA(utils.data.Dataset):
     def __init__(self, split: Literal['train', 'valid', 'test'], 
                        root_dir: Optional[str] = None, 
                        transform: Optional[Callable] = None):
@@ -32,6 +71,11 @@ class MURA(torch.utils.data.Dataset):
             'valid': {
                 'image_paths': pd.read_csv(os.path.join(self.root_dir, 'valid_image_paths.csv'), header=None),
                 'image_labels': pd.read_csv(os.path.join(self.root_dir, 'valid_labeled_studies.csv'), header=None)
+            },
+            # TODO: temp fix for test set --- same as valid
+            'test': {
+                'image_paths': pd.read_csv(os.path.join(self.root_dir, 'valid_image_paths.csv'), header=None),
+                'image_labels': pd.read_csv(os.path.join(self.root_dir, 'valid_labeled_studies.csv'), header=None)
             }
         }
 
@@ -42,7 +86,7 @@ class MURA(torch.utils.data.Dataset):
         image_path = self.data[self.split]['image_paths'].loc[index][0]
         study_dir = os.path.dirname(image_path) + '/'
         labels = self.data[self.split]['image_labels']
-        label = labels.loc[labels[0] == study_dir].values[0][1]
+        label = int(labels.loc[labels[0] == study_dir].values[0][1])
         image_path = os.path.join(os.path.dirname(self.root_dir), image_path)
         image = Image.open(image_path).convert('RGB')
         if self.transform is not None:
@@ -52,7 +96,7 @@ class MURA(torch.utils.data.Dataset):
         
         return sample
 
-class ROCO(torch.utils.data.Dataset):
+class ROCO(utils.data.Dataset):
 
     def __init__(self, split: Literal['train', 'valid', 'test'], 
                        only_radiology: bool = True, 

@@ -1,0 +1,7 @@
+numpy
+pandas
+pytorch_lightning
+pyyaml
+torch
+torchvision
+wandb
