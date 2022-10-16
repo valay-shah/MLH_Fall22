@@ -32,10 +32,11 @@ class TestModel(nn.Module):
         return x
 
 class TestModule(pl.LightningModule):
-    def __init__(self, **kwargs):
+    def __init__(self, criterion: nn, optimizer: optim, model_kwargs: Dict):
         super().__init__()
-        self.model = TestModel(**kwargs)
-        self.criterion = F.binary_cross_entropy_with_logits
+        self.model = TestModel(**model_kwargs)
+        self.criterion = criterion
+        self.optimizer = optimizer(self)
         self.save_hyperparameters()
 
     def training_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> Dict:
@@ -59,8 +60,7 @@ class TestModule(pl.LightningModule):
                 'label': y.detach().cpu()}
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
-        return optimizer
+        return self.optimizer
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)

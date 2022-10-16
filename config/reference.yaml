@@ -1,5 +1,8 @@
 # Reference YAML
 seed: 1 # Optional (Default: 0)
+wandb: # Optional
+  project: test-project # Optional (Default: test-project)
+  save_dir: __pycache__/ # Optional (Default: __pycache__/)
 dataset: 
   name: MURA
   kwargs: # Optional
@@ -8,3 +11,13 @@ model:
   name: test
   kwargs: # Optional
     num_classes: 1
+  criterion:
+    name: bce_logits
+    kwargs:
+      reduction: mean
+train:
+  max_epochs: 1
+  optimizer:
+    name: Adam
+    kwargs:
+      lr: 1.e-6 # Note: to ensure floats are processed correctly in scientific format, use a decimal seperator
