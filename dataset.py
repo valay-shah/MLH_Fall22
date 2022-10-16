@@ -10,10 +10,11 @@ import os
 from typing import Callable, Dict, Literal, Optional
 
 class MURADataModule(pl.LightningDataModule):
-    def __init__(self, root_dir: Optional[str] = None, batch_size: int = 32):
+    def __init__(self, root_dir: Optional[str] = None, batch_size: int = 32, num_workers: int = 2):
         super().__init__()
         self.root_dir = root_dir
         self.batch_size = batch_size
+        self.num_workers = num_workers
         self.train_transforms = transforms.Compose([
             transforms.Resize((32, 32)),
             transforms.ToTensor()])
@@ -41,13 +42,13 @@ class MURADataModule(pl.LightningDataModule):
             transform=self.test_transforms)
 
     def train_dataloader(self) -> utils.data.DataLoader:
-        return utils.data.DataLoader(self.train_dataset, batch_size=self.batch_size)
+        return utils.data.DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True)
 
-    def valid_dataloader(self) -> utils.data.DataLoader:
-        return utils.data.DataLoader(self.valid_dataset, batch_size=self.batch_size)
+    def val_dataloader(self) -> utils.data.DataLoader:
+        return utils.data.DataLoader(self.valid_dataset, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True)
 
     def test_dataloader(self) -> utils.data.DataLoader:
-        return utils.data.DataLoader(self.test_dataset, batch_size=self.batch_size)
+        return utils.data.DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True)
 
 class MURA(utils.data.Dataset):
     def __init__(self, split: Literal['train', 'valid', 'test'], 

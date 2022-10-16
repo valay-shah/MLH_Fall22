@@ -3,10 +3,12 @@ from utility import get_criterion, get_datamodule, get_model, get_optimizer
 import torch
 from torch import nn, optim, utils
 import pytorch_lightning as pl
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import yaml
 
 import argparse
+import os
 
 
 def run(args: argparse.Namespace):
@@ -15,7 +17,9 @@ def run(args: argparse.Namespace):
 
 
     # Global Configuration
-    seed = settings.get('seed', 0) # Random seed
+    experiment_name = settings.get('name')
+    seed = settings.get('seed', 0)
+    debug = settings.get('debug', False)
 
     # W&B Configuration
     wandb_config = settings.get('wandb', dict())
@@ -31,6 +35,7 @@ def run(args: argparse.Namespace):
     model_config = settings.get('model')
     model_name = model_config.get('name')
     model_kwargs = model_config.get('kwargs', None)
+    model_dir_path = model_config.get('dir_path', 'checkpoints/')
 
     criterion_config = model_config.get('criterion')
     criterion_name = criterion_config.get('name')
@@ -42,6 +47,12 @@ def run(args: argparse.Namespace):
     optimizer_config = train_config.get('optimizer')
     optimizer_name = optimizer_config.get('name')
     optimizer_kwargs = optimizer_config.get('kwargs', None)
+
+    # Setup Reproducibility & Debugging
+    pl.seed_everything(seed, workers=True)
+    limit_train_batches = 0.05 if debug else 1
+    limit_val_batches = 0.05 if debug else 1
+    limit_test_batches = 0.05 if debug else 1
 
     # Setup W&B
     wandb_logger = WandbLogger(
@@ -63,18 +74,32 @@ def run(args: argparse.Namespace):
     }
     model = get_model(model_name, **module_kwargs)
 
+    # Initialize Callbacks
+    early_stop_callback = EarlyStopping(monitor='val_loss', patience=2, verbose=False, mode='min')
+    dirpath = os.path.join(model_dir_path, experiment_name)
+    model_checkpoint = ModelCheckpoint(
+        monitor='val_loss', 
+        save_top_k=1, 
+        mode='min',
+        dirpath=dirpath,
+        filename='{epoch}-{val_loss:.2f}')
+
     # Train Model
     trainer = pl.Trainer(
-        limit_train_batches=100, 
+        limit_train_batches=limit_train_batches,
+        limit_val_batches=limit_val_batches,
+        limit_test_batches=limit_test_batches,
         max_epochs=max_epochs,
         accelerator='auto',
-        devices='auto', 
+        devices='auto',
+        callbacks=[model_checkpoint, early_stop_callback],
+        deterministic=True,
         logger=wandb_logger)
 
-    trainer.fit(model, datamodule)
+    trainer.fit(model, datamodule=datamodule)
 
     # Evaluate Model
-    trainer.test(model, datamodule)
+    # trainer.test(model, datamodule)
 
 
 if __name__ == '__main__':

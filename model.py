@@ -4,7 +4,7 @@ from torch import nn, optim, utils
 import torch.nn.functional as F
 import torchvision
 
-from typing import Dict
+from typing import Dict, List
 
 
 class TestModel(nn.Module):
@@ -48,6 +48,15 @@ class TestModule(pl.LightningModule):
 
         return {'loss': loss}
 
+    def validation_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> Dict:
+        x = batch['image']
+        y = batch['label'].unsqueeze(1).float()
+        y_hat = self(x)
+        loss = self.criterion(y_hat, y)
+        self.log('val_loss', loss)
+
+        return {'val_loss': loss}
+
     def test_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> Dict:
         x = batch['image'] 
         y = batch['label'].unsqueeze(1).float()
@@ -58,6 +67,18 @@ class TestModule(pl.LightningModule):
         return {'test_loss': loss,
                 'pred_label': y_hat.max(dim=1)[1].detach().cpu(),
                 'label': y.detach().cpu()}
+
+    def validation_epoch_end(self, outputs: List[dict]):
+        avg_loss = torch.stack([output['val_loss'] for output in outputs]).mean()
+        self.log('val_loss', avg_loss)
+
+        return {'val_loss': avg_loss}
+
+    def test_epoch_end(self, outputs: List[dict]):
+        avg_loss = torch.stack([output['test_loss'] for output in outputs]).mean()
+        self.log('test_loss', avg_loss)
+
+        return {'test_loss': avg_loss}
 
     def configure_optimizers(self):
         return self.optimizer
