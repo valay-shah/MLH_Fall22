@@ -6,4 +6,4 @@
 ```
 
 ## Creating an Experiment
-See `config.reference.yaml`.
+See `config/reference.yaml`.
