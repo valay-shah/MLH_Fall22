@@ -15,7 +15,6 @@ def run(args: argparse.Namespace):
     with open(args.experiment, 'r') as f:
         settings = yaml.safe_load(f)
 
-
     # Global Configuration
     experiment_name = settings.get('name')
     seed = settings.get('seed', 0)
@@ -23,7 +22,6 @@ def run(args: argparse.Namespace):
 
     # W&B Configuration
     wandb_config = settings.get('wandb', dict())
-    wandb_project = wandb_config.get('project', 'test-project')
     wandb_dir = wandb_config.get('save_dir', '__pycache__/')
 
     # Dataset Configuration
@@ -50,13 +48,13 @@ def run(args: argparse.Namespace):
 
     # Setup Reproducibility & Debugging
     pl.seed_everything(seed, workers=True)
-    limit_train_batches = 0.05 if debug else 1
-    limit_val_batches = 0.05 if debug else 1
-    limit_test_batches = 0.05 if debug else 1
+    limit_train_batches = 100 if debug else 1
+    limit_val_batches = 100 if debug else 1
+    limit_test_batches = 100 if debug else 1
 
     # Setup W&B
     wandb_logger = WandbLogger(
-        project=wandb_project,
+        project=experiment_name,
         save_dir=wandb_dir)
 
     # Initialize Lightning Module and Data Module

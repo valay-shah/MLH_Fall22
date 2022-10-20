@@ -24,8 +24,9 @@ def get_criterion(name: str, **kwargs) -> nn:
     else:
         raise NameError(f'Unknown criterion: {name}')
 
+# TODO: refactor so it can be tracked in W&B
 def get_optimizer(name: str, **kwargs) -> optim:
-    if name == 'Adam':
+    if name == 'adam':
         return lambda model: optim.Adam(model.parameters(), **kwargs)
     else:
         raise NameError(f'Unknown optimizer: {optimizer}')

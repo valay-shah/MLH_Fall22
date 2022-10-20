@@ -1,15 +1,14 @@
 # Reference YAML
 name: test # Note: will override saved models
-seed: 1 # Optional (Default: 0)
+seed: 0 # Optional (Default: 0)
 debug: True # Optional (Default: False)
 wandb: # Optional
-  project: test-project # Optional (Default: test-project)
   save_dir: __pycache__/ # Optional (Default: __pycache__/)
 dataset: 
   name: MURA
   kwargs: # Optional
     batch_size: 16
-    num_workers: 2
+    num_workers: 8
 model:
   name: test
   dir_path: checkpoints/ # Optional (Default: checkpoints/)
@@ -20,8 +19,8 @@ model:
     kwargs: # Optional
       reduction: mean
 train:
-  max_epochs: 3 # Optional (Default: 1)
+  max_epochs: 1 # Optional (Default: 1)
   optimizer:
-    name: Adam
+    name: adam
     kwargs: # Optional
       lr: 1.e-6 # Note: to ensure floats are processed correctly in scientific format, use a decimal seperator
