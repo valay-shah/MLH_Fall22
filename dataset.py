@@ -137,7 +137,7 @@ class ROCO(utils.data.Dataset):
                        only_radiology: bool = True, 
                        root_dir: Optional[str] = None, 
                        transform: Optional[Callable] = None):
-        
+         
         self.split = split
         if root_dir is None:
             self.root_dir = os.path.join(os.getcwd(), 'data', 'ROCO')
