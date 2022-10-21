@@ -70,10 +70,10 @@ class MURA(utils.data.Dataset):
                 'image_labels': pd.read_csv(os.path.join(self.root_dir, 'train_labeled_studies.csv'), header=None)
             },
             'valid': {
-                'image_paths': pd.read_csv(os.path.join(self.root_dir, 'valid_image_paths.csv'), header=None),
-                'image_labels': pd.read_csv(os.path.join(self.root_dir, 'valid_labeled_studies.csv'), header=None)
+                'image_paths': pd.read_csv(os.path.join(self.root_dir, 'train_image_paths.csv'), header=None),
+                'image_labels': pd.read_csv(os.path.join(self.root_dir, 'train_labeled_studies.csv'), header=None)
             },
-            # TODO: temp fix for test set --- same as valid
+            # TODO: temp fix for test set --- same as train
             'test': {
                 'image_paths': pd.read_csv(os.path.join(self.root_dir, 'valid_image_paths.csv'), header=None),
                 'image_labels': pd.read_csv(os.path.join(self.root_dir, 'valid_labeled_studies.csv'), header=None)
@@ -97,6 +97,40 @@ class MURA(utils.data.Dataset):
         
         return sample
 
+
+class CHEXPERT(utils.data.Dataset):
+    def __init__(self, split: Literal['train', 'valid'],
+                       root_dir: Optional[str] = None,
+                       transform: Optional[Callable] = None):
+        self.split = split
+        if root_dir is None:
+            self.root_dir = os.path.join(os.getcwd(), 'data', 'CheXpert-v1.0-small')
+        else:
+            self.root_dir = root_dir
+
+        self.transform = transform
+
+        self.data = {
+            'train': pd.read_csv(os.path.join(self.root_dir, 'train.csv')),
+            'valid': pd.read_csv(os.path.join(self.root_dir, 'valid.csv'))
+        }
+
+    def __len__(self) -> int:
+        return len(self.data[self.split])
+
+    def __getitem__(self, index: int) -> Dict:
+        image_path = self.data[self.split]['Path'].loc[index]
+        image_path = os.path.join(os.path.dirname(self.root_dir), image_path)
+        image = Image.open(image_path).convert('RGB')
+        if self.transform is not None:
+            image = self.transform(image)
+
+        sample = {'image': image}
+
+        return sample
+
+
+# TODO: Remove?
 class ROCO(utils.data.Dataset):
 
     def __init__(self, split: Literal['train', 'valid', 'test'], 
