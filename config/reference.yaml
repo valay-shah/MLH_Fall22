@@ -17,7 +17,7 @@ criterion_kwargs:
   weight: 0.75
 
 optimizer_kwargs:
-  lr: 1.e-6 # Note: to ensure floats are processed correctly in scientific format, use a decimal seperator
+  lr: 1.e-4 # Note: to ensure floats are processed correctly in scientific format, use a decimal seperator
 
 train:
   max_epochs: 3 # Optional (Default: 1)
