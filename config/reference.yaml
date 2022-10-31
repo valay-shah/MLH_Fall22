@@ -1,26 +1,24 @@
 # Reference YAML
 name: test # Note: will override saved models
+mode: pretrain # pretrain, finetune, or evaluate
 seed: 0 # Optional (Default: 0)
 debug: True # Optional (Default: False)
-wandb: # Optional
-  save_dir: __pycache__/ # Optional (Default: __pycache__/)
-dataset: 
-  name: MURA
-  kwargs: # Optional
-    batch_size: 16
-    num_workers: 4
-model:
-  name: test
-  dir_path: checkpoints/ # Optional (Default: checkpoints/)
-  kwargs: # Optional
-    num_classes: 1
-  criterion:
-    name: bce_logits
-    kwargs: # Optional
-      reduction: mean
+batch_size: 32 # Optional (Default: 32)
+num_workers: 4 # Optional (Default: 4)
+checkpoint_path: checkpoints/ # Optional (Default: checkpoints/)
+
+model_kwargs:
+  image_encoder: resnet18
+  hidden_dim: 1024
+  out_dim: 512
+
+criterion_kwargs:
+  temperature: 0.1
+  weight: 0.75
+
+optimizer_kwargs:
+  lr: 1.e-6 # Note: to ensure floats are processed correctly in scientific format, use a decimal seperator
+
 train:
-  max_epochs: 1 # Optional (Default: 1)
-  optimizer:
-    name: adam
-    kwargs: # Optional
-      lr: 1.e-6 # Note: to ensure floats are processed correctly in scientific format, use a decimal seperator
+  max_epochs: 3 # Optional (Default: 1)
+  

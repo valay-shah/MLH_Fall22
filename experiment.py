@@ -1,4 +1,5 @@
-from utility import get_criterion, get_datamodule, get_model, get_optimizer
+from dataset import PretrainDataModule
+from model import Pretrain
 
 import torch
 from torch import nn, optim, utils
@@ -19,64 +20,60 @@ def run(args: argparse.Namespace):
     experiment_name = settings.get('name')
     seed = settings.get('seed', 0)
     debug = settings.get('debug', False)
-
-    # W&B Configuration
-    wandb_config = settings.get('wandb', dict())
-    wandb_dir = wandb_config.get('save_dir', '__pycache__/')
-
-    # Dataset Configuration
-    dataset_config = settings.get('dataset')
-    dataset_name = dataset_config.get('name')
-    dataset_kwargs = dataset_config.get('kwargs', None)
+    mode = settings.get('mode')
+    batch_size = settings.get('batch_size', 32)
+    num_workers = settings.get('num_workers', 4)
+    checkpoint_path = settings.get('checkpoint_path', 'checkpoints/')
 
     # Model Configuration
-    model_config = settings.get('model')
-    model_name = model_config.get('name')
-    model_kwargs = model_config.get('kwargs', None)
-    model_dir_path = model_config.get('dir_path', 'checkpoints/')
+    model_kwargs = settings.get('model_kwargs', None)
 
-    criterion_config = model_config.get('criterion')
-    criterion_name = criterion_config.get('name')
-    criterion_kwargs = criterion_config.get('kwargs', None)
+    # Criterion Configuration
+    criterion_kwargs = settings.get('criterion_kwargs', None)
+
+    # Optimizer Configuration
+    optimizer_kwargs = settings.get('optimizer_kwargs', None)
 
     # Train Configuration
     train_config = settings.get('train')
     max_epochs = train_config.get('max_epochs', 1)
-    optimizer_config = train_config.get('optimizer')
-    optimizer_name = optimizer_config.get('name')
-    optimizer_kwargs = optimizer_config.get('kwargs', None)
 
     # Setup Reproducibility & Debugging
     pl.seed_everything(seed, workers=True)
-    limit_train_batches = 100 if debug else 1
-    limit_val_batches = 100 if debug else 1
-    limit_test_batches = 100 if debug else 1
+    limit_train_batches = 100 if debug else 1.0
+    limit_val_batches = 100 if debug else 1.0
+    limit_test_batches = 100 if debug else 1.0
 
     # Setup W&B
+    wandb_dir = '__pycache__/'
     wandb_logger = WandbLogger(
         project=experiment_name,
         save_dir=wandb_dir)
 
     # Initialize Lightning Module and Data Module
-    if dataset_kwargs is not None:
-        datamodule = get_datamodule(dataset_name, **dataset_kwargs)
-    else:
-        datamodule = get_datamodule(dataset_name)
+    os.environ['TOKENIZERS_PARALLELISM'] = 'false' # https://github.com/huggingface/transformers/issues/5486
 
-    criterion = get_criterion(criterion_name, **criterion_kwargs)
-    optimizer = get_optimizer(optimizer_name, **optimizer_kwargs)
-    module_kwargs = {
-        'criterion': criterion,
-        'optimizer': optimizer,
-        'model_kwargs': model_kwargs
-    }
-    model = get_model(model_name, **module_kwargs)
+    if mode == 'pretrain':
+        datamodule = PretrainDataModule(
+            batch_size=batch_size, 
+            num_workers=num_workers)
+        model = Pretrain(
+            model_kwargs=model_kwargs,
+            criterion_kwargs=criterion_kwargs,
+            optimizer_kwargs=optimizer_kwargs)
+
+    elif mode == 'finetune':
+        raise NotImplementedError(mode)
+    elif mode == 'evaluate':
+        raise NotImplementedError(mode)
+    else:
+        raise ValueError(f'Unknown mode {mode}')
 
     # Initialize Callbacks
     early_stop_callback = EarlyStopping(monitor='val_loss', patience=2, verbose=False, mode='min')
-    dirpath = os.path.join(model_dir_path, experiment_name)
+    dirpath = os.path.join(checkpoint_path, experiment_name)
     model_checkpoint = ModelCheckpoint(
-        monitor='val_loss', 
+        monitor='val_loss',
         save_top_k=1, 
         mode='min',
         dirpath=dirpath,

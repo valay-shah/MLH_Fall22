@@ -37,20 +37,6 @@ These are at the top level of the file.
 | `seed` | The random seed for reproducibility. | `0` |
 | `debug` | Indicates to use only 100 samples of all data splits for quick iteration. | `False` |
 
-### W&B Settings
-These are under the `wanb` keyword.
-
-| **Keyword** | **Description** | **Default** |
-| --- | --- | --- |
-| `save_dir` | Save directory for local run information. | `__pycache__/` |
-
-### Dataset Settings
-These are under the `dataset` keyword.
-
-| **Keyword** | **Description** | **Default** |
-| --- | --- | --- |
-| `name` | The dataset name. | No Default |
-| `kwargs` | Keyword arguments for a PyTorch Lightning Data Module object such that nested key value pairs will be a dictionary. | No Default |
 
 
 ### Model Settings
