@@ -1,10 +1,10 @@
-from dataset import PretrainDataModule
-from model import Pretrain
+from dataset import PretrainDataModule, MURADataModule
+from model import Pretrain, Downstream
 
 import torch
 from torch import nn, optim, utils
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
 import yaml
 
@@ -35,8 +35,13 @@ def run(args: argparse.Namespace):
     optimizer_kwargs = settings.get('optimizer_kwargs', None)
 
     # Train Configuration
-    train_config = settings.get('train')
+    train_config = settings.get('train', dict())
     max_epochs = train_config.get('max_epochs', 1)
+
+    # Downtream Configuration
+    downstream_config = settings.get('downstream', dict())
+    max_epochs = downstream_config.get('max_epochs', 1)
+    finetune = downstream_config.get('finetune', True)
 
     # Setup Reproducibility & Debugging
     pl.seed_everything(seed, workers=True)
@@ -62,8 +67,15 @@ def run(args: argparse.Namespace):
             criterion_kwargs=criterion_kwargs,
             optimizer_kwargs=optimizer_kwargs)
 
-    elif mode == 'finetune':
-        raise NotImplementedError(mode)
+    elif mode == 'downstream':
+        model_checkpoint = os.path.join(checkpoint_path, experiment_name, 'pretrain.ckpt')
+        model = Downstream(
+            model_checkpoint=model_checkpoint,
+            finetune=finetune,
+            optimizer_kwargs=optimizer_kwargs)
+        datamodule = MURADataModule(
+            batch_size=batch_size,
+            num_workers=num_workers)
     elif mode == 'evaluate':
         raise NotImplementedError(mode)
     else:
@@ -77,7 +89,8 @@ def run(args: argparse.Namespace):
         save_top_k=1, 
         mode='min',
         dirpath=dirpath,
-        filename='{epoch}-{val_loss:.2f}')
+        filename=mode)
+    lr_monitor = LearningRateMonitor()
 
     # Train Model
     trainer = pl.Trainer(
@@ -87,7 +100,7 @@ def run(args: argparse.Namespace):
         max_epochs=max_epochs,
         accelerator='auto',
         devices='auto',
-        callbacks=[model_checkpoint, early_stop_callback],
+        callbacks=[model_checkpoint, early_stop_callback, lr_monitor],
         deterministic=True,
         logger=wandb_logger)
 

@@ -1,6 +1,6 @@
 # Reference YAML
 name: test # Note: will override saved models
-mode: pretrain # pretrain, finetune, or evaluate
+mode: pretrain # pretrain, downstream, or evaluate
 seed: 0 # Optional (Default: 0)
 debug: True # Optional (Default: False)
 batch_size: 32 # Optional (Default: 32)
@@ -20,5 +20,9 @@ optimizer_kwargs:
   lr: 1.e-4 # Note: to ensure floats are processed correctly in scientific format, use a decimal seperator
 
 train:
+  max_epochs: 3 # Optional (Default: 1)
+
+downstream:
+  finetune: False # Optional (Default: True)
   max_epochs: 3 # Optional (Default: 1)
   

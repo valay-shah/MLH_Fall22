@@ -17,13 +17,13 @@ class MURADataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.train_transforms = transforms.Compose([
-            transforms.Resize((32, 32)),
+            transforms.Resize((224, 224)),
             transforms.ToTensor()])
         self.valid_transforms = transforms.Compose([
-            transforms.Resize((32, 32)),
+            transforms.Resize((224, 224)),
             transforms.ToTensor()])
         self.test_transforms = transforms.Compose([
-            transforms.Resize((32, 32)),
+            transforms.Resize((224, 224)),
             transforms.ToTensor()])
 
     def setup(self, stage: str):

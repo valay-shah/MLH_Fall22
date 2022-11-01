@@ -28,46 +28,17 @@ Then, execute the following:
 This section will explain the configuration for running experiments.
 All configurations are `.yaml` files and should be stored in the `config/` directory.
 
-### Global Settings
-These are at the top level of the file.
-
-| **Keyword** | **Description** | **Default** |
-| --- | --- | --- |
-| `name` | The experiment name which W&B runs are organized and the directory local model checkpoints are stored. | No Default |
-| `seed` | The random seed for reproducibility. | `0` |
-| `debug` | Indicates to use only 100 samples of all data splits for quick iteration. | `False` |
-
-
-
-### Model Settings
-These are under the `model` keyword.
-
-| **Keyword** | **Description** | **Default** |
-| --- | --- | --- |
-| `name` | The model name. | No Default |
-| `dir_path` | The directory to store checkpoints of this model. | `checkpoints/` |
-| `kwargs` | Keyword arguments for a PyTorch Lightning Module object such that nested key value pairs will be a dictionary. | No Default |
-
-### Criterion Settings
-These are under the `criterion` keyword which is in model settings.
-
-| **Keyword** | **Description** | **Default** |
-| --- | --- | --- |
-| `name` | The name of the criterion. | No Default |
-| `kwargs` | Keyword arguments for a PyTorch `nn` loss function such that nested key value pairs will be a dictionary. | No Default |
-
-### Train Settings
-These are under the `train` keyword.
-
-| **Keyword** | **Description** | **Default** |
-| --- | --- | --- |
-| `max_epochs` | The maximum number of epochs to run for. | `1` |
-
-
-### Optimizer Settings
-These are under the `optimizer` keyword which is in train settings.
-
-| **Keyword** | **Description** | **Default** |
-| --- | --- | --- |
-| `name` | The name of the optimizer. | No Default |
-| `kwargs` | Keyword arguments for a PyTorch `optim` function such that nest key value pairs will be a dictionary. |
+| **Keyword** | **Description** | **Default** | **Required** |
+| --- | --- | --- | --- |
+| `name` | The experiment name which W&B runs are organized and the directory local model checkpoints are stored. | No Default | Yes |
+| `mode` | The type of experiment to run (i.e., pretrain, downstream, or evaluate). | No Default | Yes |
+| `seed` | The random seed for reproducibility. | `0` | No |
+| `debug` | Indicates to use only 100 samples of all data splits for quick iteration. | `False` | No |
+| `batch_size` | Batch size for training, validation, and test data loaders. | `32` | No |
+| `num_workers` | Number of workers for training, validation, and test data loaders. | `4` | No |
+| `checkpoint_path` | Directory to put saved model. | `checkpoints/` | No |
+| `model_kwargs` | Model kwargs (e.g., hyperparameters). | No Default | No |
+| `criterion_kwargs` | Criterion kwargs (e.g., loss). | No Default | No |
+| `optimizer_kwargs` | Optimizer kwargs (e.g., gradients). | No Default | No |
+| `train` | Section containing training specific options. | No Default | No |
+| `downstream` | Section containing downstream specific options. | No Default | No |

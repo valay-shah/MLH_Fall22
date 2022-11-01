@@ -2,6 +2,7 @@ import pytorch_lightning as pl
 import torch
 from torch import nn, optim, utils
 import torch.nn.functional as F
+from torchmetrics.classification import BinaryAccuracy, BinaryAUROC
 import torchvision
 from transformers import AutoTokenizer, AutoModel
 
@@ -56,7 +57,7 @@ class ConVIRT(nn.Module):
         super().__init__()
         self.image_out_features, self.image_encoder = get_image_encoder(image_encoder)
         self.text_encoder = AutoModel.from_pretrained('emilyalsentzer/Bio_ClinicalBERT')
-
+        self.out_dim = out_dim
         self.image_projector = nn.Sequential(
             nn.Linear(self.image_out_features, hidden_dim),
             nn.ReLU(),
@@ -85,7 +86,7 @@ class Pretrain(pl.LightningModule):
         self.optimizer_kwargs = optimizer_kwargs
         self.save_hyperparameters()
 
-    def training_step(self, batch: Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]], batch_idx: int) -> Dict:
+    def training_step(self, batch: Dict[str, Union[torch.Tensor, Dict]], batch_idx: int) -> Dict:
         image_batch = batch['image']
         text_batch = batch['report']
 
@@ -116,3 +117,81 @@ class Pretrain(pl.LightningModule):
 
     def forward(self, image_batch: torch.Tensor, text_batch: Dict[str, torch.Tensor]) -> torch.Tensor:
         return self.model(image_batch, text_batch)
+
+class Downstream(pl.LightningModule):
+    def __init__(self, model_checkpoint: str, finetune: bool, optimizer_kwargs: Dict):
+        super().__init__()
+        convirt_model = Pretrain.load_from_checkpoint(model_checkpoint).model
+        self.image_encoder = convirt_model.image_encoder
+        out_dim = convirt_model.out_dim
+        self.finetune = finetune
+        self.optimizer_kwargs = optimizer_kwargs
+        self.classifier = nn.Linear(out_dim, 1)
+
+    def training_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> Dict:
+        images = batch['image']
+        y = batch['label'].unsqueeze(1).float()
+
+        y_hat = self(images)
+        loss = F.binary_cross_entropy_with_logits(y_hat, y)
+        # TODO: Fix metrics
+        # accuracy = BinaryAccuracy(y_hat, y, threshold=0.5)
+        # auroc = BinaryAUROC(y_hat, y)
+        # metrics = {'train_loss': loss, 'train_accuracy': accuracy,  'train_auroc': auroc}
+        # self.log_dic(metrics)
+        self.log('train_loss', loss)
+
+        return {'loss': loss}
+
+    def validation_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> Dict:
+        images = batch['image']
+        y = batch['label'].unsqueeze(1).float()
+
+        y_hat = self(images)
+        loss = F.binary_cross_entropy_with_logits(y_hat, y)
+        # accuracy = BinaryAccuracy(y_hat, y, threshold=0.5)
+        # auroc = BinaryAUROC(y_hat, y)
+        # metrics = {'val_loss': loss, 'val_accuracy': accuracy,  'val_auroc': auroc}
+        # self.log_dic(metrics)
+        self.log('val_loss', loss)
+
+        return {'val_loss': loss}
+
+    def test_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> Dict:
+        images = batch['image']
+        y = batch['label'].unsqueeze(1).float()
+
+        y_hat = self(images)
+        loss = F.binary_cross_entropy_with_logits(y_hat, y)
+        # accuracy = BinaryAccuracy(y_hat, y, threshold=0.5)
+        # auroc = BinaryAUROC(y_hat, y)
+        # metrics = {'test_loss': loss, 'test_accuracy': accuracy,  'test_auroc': auroc}
+        # self.log_dic(metrics)
+        self.log('test_loss', loss)
+
+        return {'test_loss': loss}
+
+    def validation_epoch_end(self, outputs: List[dict]):
+        avg_loss = torch.stack([output['val_loss'] for output in outputs]).mean()
+        self.log('val_loss', avg_loss)
+
+        return {'val_loss': avg_loss}
+
+    def test_epoch_end(self, outputs: List[dict]):
+        avg_loss = torch.stack([output['test_loss'] for output in outputs]).mean()
+        self.log('test_loss', avg_loss)
+
+        return {'test_loss': avg_loss}
+
+    def configure_optimizers(self):
+        return optim.AdamW(self.parameters(), **self.optimizer_kwargs)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Only finetune image encoder weights if set, otherwise just use for inference
+        if self.finetune:
+            self.image_encoder.train()
+        else:
+            self.image_encoder.eval()
+        h = self.image_encoder(x).squeeze(-1).squeeze(-1)
+        logits = self.classifier(h)
+        return logits
