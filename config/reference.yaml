@@ -6,6 +6,7 @@ debug: True # Optional (Default: False)
 batch_size: 32 # Optional (Default: 32)
 num_workers: 4 # Optional (Default: 4)
 checkpoint_path: checkpoints/ # Optional (Default: checkpoints/)
+root_dir: data/ # Optional (Default: data/)
 
 model_kwargs:
   image_encoder: resnet18
@@ -20,9 +21,12 @@ optimizer_kwargs:
   lr: 1.e-4 # Note: to ensure floats are processed correctly in scientific format, use a decimal seperator
 
 train:
+  frac: 1.0 # Optional: (Default: 1.0)
   max_epochs: 3 # Optional (Default: 1)
 
 downstream:
+  frac: 0.01 # Optional: (Default: 1.0)
+  dataset: MURA # MURA or CHEXPERT
   finetune: False # Optional (Default: True)
-  max_epochs: 3 # Optional (Default: 1)
+  max_epochs: 1 # Optional (Default: 1)
   
