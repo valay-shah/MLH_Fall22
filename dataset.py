@@ -37,12 +37,14 @@ class RandomTransformation(nn.Module):
         transform = random.choice(self.family)
         return transform(image)
 
-class MURADataModule(pl.LightningDataModule):
-    def __init__(self, root_dir: Optional[str] = None, batch_size: int = 32, num_workers: int = 2):
+class DownstreamDataModule(pl.LightningDataModule):
+    def __init__(self, dataset: str, root_dir: Optional[str] = None, batch_size: int = 32, num_workers: int = 2, frac: float = 1.0):
         super().__init__()
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.dataset = dataset
+        self.frac = frac
         self.train_transforms = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor()])
@@ -53,45 +55,69 @@ class MURADataModule(pl.LightningDataModule):
             transforms.Resize((224, 224)),
             transforms.ToTensor()])
 
+    def get_dataset(self, name: str, split:str, root_dir: str, transform: Callable) -> utils.data.Dataset:
+        if name == 'MURA':
+            return MURA(split=split, root_dir=root_dir, transform=transform)
+        elif name == 'CHEXPERT':
+            return CHEXPERT(split=split, root_dir=root_dir, transform=transform)
+        else:
+            raise ValueError(f'Unknown dataset {name}')
+
+    def get_dataset_split(self, dataset: utils.data.Dataset, frac: float) -> utils.data.Subset:
+        num_elements = int(frac * len(dataset))
+        indices = torch.arange(num_elements)
+        return utils.data.Subset(dataset, indices)
+
     def setup(self, stage: str):
-        self.train_dataset = MURA(
-            split='train',
+        self.train_dataset = self.get_dataset(
+            name=self.dataset,
+            split='train', 
             root_dir=self.root_dir,
             transform=self.train_transforms)
 
-        self.valid_dataset = MURA(
-            split='valid',
+        self.train_dataset = self.get_dataset_split(
+            self.train_dataset, 
+            frac=self.frac)
+
+        self.valid_dataset = self.get_dataset(
+            name=self.dataset,
+            split='valid', 
             root_dir=self.root_dir,
             transform=self.valid_transforms)
 
-        self.test_dataset = MURA(
-            split='test',
+        # self.valid_dataset = get_dataset_split(self.valid_dataset, frac=1.0)
+
+        self.test_dataset = self.get_dataset(
+            name=self.dataset,
+            split='test', 
             root_dir=self.root_dir,
             transform=self.test_transforms)
+
+        # self.valid_dataset = get_dataset_split(self.valid_dataset, frac=1.0)
 
     def train_dataloader(self) -> utils.data.DataLoader:
         return utils.data.DataLoader(self.train_dataset, 
                                      batch_size=self.batch_size, 
                                      num_workers=self.num_workers, 
                                      pin_memory=True,
-                                     shuffle=True,
-                                     collate_fn=lambda x: tuple(zip(*x)))
+                                     shuffle=True)
+                                     # collate_fn=lambda x: tuple(zip(*x)))
 
     def val_dataloader(self) -> utils.data.DataLoader:
         return utils.data.DataLoader(self.valid_dataset, 
                                      batch_size=self.batch_size, 
                                      num_workers=self.num_workers, 
                                      pin_memory=True,
-                                     shuffle=False,
-                                     collate_fn=lambda x: tuple(zip(*x)))
+                                     shuffle=False)
+                                     # collate_fn=lambda x: tuple(zip(*x)))
 
     def test_dataloader(self) -> utils.data.DataLoader:
         return utils.data.DataLoader(self.test_dataset, 
                                      batch_size=self.batch_size, 
                                      num_workers=self.num_workers, 
                                      pin_memory=True,
-                                     shuffle=False,
-                                     collate_fn=lambda x: tuple(zip(*x)))
+                                     shuffle=False)
+                                     # collate_fn=lambda x: tuple(zip(*x)))
 
 class MURA(utils.data.Dataset):
     def __init__(self, split: Literal['train', 'valid', 'test'], 
@@ -99,10 +125,11 @@ class MURA(utils.data.Dataset):
                        transform: Optional[Callable] = None):
         
         self.split = split
+
         if root_dir is None:
-            self.root_dir = os.path.join(os.getcwd(), 'data', 'MURA-v1.1')
+            self.root_dir = os.path.join(os.getcwd(), 'MURA-v1.1')
         else:
-            self.root_dir = root_dir
+            self.root_dir = os.path.join(root_dir, 'MURA-v1.1')
 
         self.transform = transform
 
@@ -144,11 +171,12 @@ class MURA(utils.data.Dataset):
         return sample
 
 class PretrainDataModule(pl.LightningDataModule):
-    def __init__(self, root_dir: Optional[str] = None, batch_size: int = 32, num_workers: int = 2):
+    def __init__(self, root_dir: Optional[str] = None, batch_size: int = 32, num_workers: int = 2, frac: float = 1.0):
         super().__init__()
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.frac = frac
         self.family = [ 
             transforms.RandomResizedCrop(size=(224, 224),
                                         ratio=(0.6, 1.0)), 
@@ -177,8 +205,16 @@ class PretrainDataModule(pl.LightningDataModule):
         }
 
     def setup(self, stage: str):
-        self.train_dataset = MIMIC_CXR(image_transform=self.train_transform['image'])
-        self.valid_dataset = MIMIC_CXR(image_transform=self.valid_transform['image'])
+        self.train_dataset = MIMIC_CXR(split='train', image_transform=self.train_transform['image'], root_dir=self.root_dir)
+        self.valid_dataset = MIMIC_CXR(split='valid', image_transform=self.valid_transform['image'], root_dir=self.root_dir)
+
+        self.train_dataset = self.get_dataset_split(self.train_dataset, frac=self.frac)
+
+        # self.valid_dataset = get_dataset_split(self.valid_dataset, frac=1.0)
+    def get_dataset_split(self, dataset: utils.data.Dataset, frac: float) -> utils.data.Subset:
+        num_elements = int(frac * len(dataset))
+        indices = torch.arange(num_elements)
+        return utils.data.Subset(dataset, indices)
 
     def train_dataloader(self) -> utils.data.DataLoader:
         return utils.data.DataLoader(self.train_dataset, 
@@ -196,9 +232,17 @@ class PretrainDataModule(pl.LightningDataModule):
 
 class MIMIC_CXR(utils.data.Dataset):
     def __init__(self, 
+        split: Literal['train', 'valid'],
+        root_dir: Optional[str] = None,
         image_transform: Optional[Callable] = None, 
         text_transform: Optional[Callable] = None):
-        self.root_dir = os.path.join(os.getcwd(), 'data', 'MIMIC-CXR-TEST')
+        self.split = split
+        # TODO: rename to actual MIMIC-CXR unzipped directory name
+        if root_dir is None:
+            self.root_dir = os.path.join(os.getcwd(), 'MIMIC-CXR-TEST')
+        else:
+            self.root_dir = os.path.join(root_dir, 'MIMIC-CXR-TEST')
+
         self.tokenizer = AutoTokenizer.from_pretrained('emilyalsentzer/Bio_ClinicalBERT')
         # TODO: os walk and split into train and validation (80/20?)
         self.data = (
@@ -237,19 +281,19 @@ class MIMIC_CXR(utils.data.Dataset):
         
         return {'image': image, 'report': tokenized_report}    
 
-# TODO: remove?
 class CHEXPERT(utils.data.Dataset):
-    def __init__(self, split: Literal['train', 'valid'],
+    def __init__(self, split: Literal['train', 'valid', 'test'],
                        root_dir: Optional[str] = None,
                        transform: Optional[Callable] = None):
         self.split = split
         if root_dir is None:
-            self.root_dir = os.path.join(os.getcwd(), 'data', 'CheXpert-v1.0-small')
+            self.root_dir = os.path.join(os.getcwd(), 'CheXpert-v1.0-small')
         else:
-            self.root_dir = root_dir
+            self.root_dir = os.path.join(root_dir, 'CheXpert-v1.0-small')
 
         self.transform = transform
 
+        # TODO: Add test split (similar to MURA?)
         self.data = {
             'train': pd.read_csv(os.path.join(self.root_dir, 'train.csv')),
             'valid': pd.read_csv(os.path.join(self.root_dir, 'valid.csv'))
@@ -259,6 +303,7 @@ class CHEXPERT(utils.data.Dataset):
         return len(self.data[self.split])
 
     def __getitem__(self, index: int) -> Dict:
+        # TODO: Get label
         image_path = self.data[self.split]['Path'].loc[index]
         image_path = os.path.join(os.path.dirname(self.root_dir), image_path)
         image = Image.open(image_path).convert('RGB')
@@ -266,46 +311,5 @@ class CHEXPERT(utils.data.Dataset):
             image = self.transform(image)
 
         sample = {'image': image}
-
-        return sample
-
-
-# TODO: Remove?
-class ROCO(utils.data.Dataset):
-
-    def __init__(self, split: Literal['train', 'valid', 'test'], 
-                       only_radiology: bool = True, 
-                       root_dir: Optional[str] = None, 
-                       transform: Optional[Callable] = None):
-         
-        self.split = split
-        if root_dir is None:
-            self.root_dir = os.path.join(os.getcwd(), 'data', 'ROCO')
-        else:
-            self.root_dir = root_dir
-
-        # TODO: Handle non-radiology images
-        self.only_radiology = only_radiology
-        self.transform = transform
-
-        self.data = {
-            'train': pd.read_csv(os.path.join(self.root_dir, 'train', 'radiology', 'captions.txt'), header=None, delimiter='\t'),
-            'valid': pd.read_csv(os.path.join(self.root_dir, 'validation', 'radiology', 'captions.txt'), header=None, delimiter='\t'),
-            'test': pd.read_csv(os.path.join(self.root_dir, 'test', 'radiology', 'captions.txt'), header=None, delimiter='\t'),
-        }
-
-    def __len__(self) -> int:
-        return len(self.data[self.split])
-
-    def __getitem__(self, index: int) -> Dict:
-        image_name, caption = self.data[self.split].loc[index].values
-        image_name = image_name + '.jpg'
-        caption = caption.strip()
-        image_path = os.path.join(self.root_dir, self.split, 'radiology', 'images', image_name)
-        image = Image.open(image_path).convert('RGB')
-        if self.transform is not None:
-            image = self.transform(image)
-
-        sample = {'image': image, 'caption': caption}
 
         return sample

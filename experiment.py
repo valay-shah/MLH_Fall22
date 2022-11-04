@@ -1,4 +1,4 @@
-from dataset import PretrainDataModule, MURADataModule
+from dataset import PretrainDataModule, DownstreamDataModule
 from model import Pretrain, Downstream
 
 import torch
@@ -24,6 +24,7 @@ def run(args: argparse.Namespace):
     batch_size = settings.get('batch_size', 32)
     num_workers = settings.get('num_workers', 4)
     checkpoint_path = settings.get('checkpoint_path', 'checkpoints/')
+    root_dir = settings.get('root_dir', 'data/')
 
     # Model Configuration
     model_kwargs = settings.get('model_kwargs', None)
@@ -42,6 +43,7 @@ def run(args: argparse.Namespace):
     downstream_config = settings.get('downstream', dict())
     max_epochs = downstream_config.get('max_epochs', 1)
     finetune = downstream_config.get('finetune', True)
+    dataset = downstream_config.get('dataset')
 
     # Setup Reproducibility & Debugging
     pl.seed_everything(seed, workers=True)
@@ -59,13 +61,14 @@ def run(args: argparse.Namespace):
     os.environ['TOKENIZERS_PARALLELISM'] = 'false' # https://github.com/huggingface/transformers/issues/5486
 
     if mode == 'pretrain':
-        datamodule = PretrainDataModule(
-            batch_size=batch_size, 
-            num_workers=num_workers)
         model = Pretrain(
             model_kwargs=model_kwargs,
             criterion_kwargs=criterion_kwargs,
             optimizer_kwargs=optimizer_kwargs)
+        datamodule = PretrainDataModule(
+            root_dir=root_dir,
+            batch_size=batch_size, 
+            num_workers=num_workers)
 
     elif mode == 'downstream':
         model_checkpoint = os.path.join(checkpoint_path, experiment_name, 'pretrain.ckpt')
@@ -73,7 +76,9 @@ def run(args: argparse.Namespace):
             model_checkpoint=model_checkpoint,
             finetune=finetune,
             optimizer_kwargs=optimizer_kwargs)
-        datamodule = MURADataModule(
+        datamodule = DownstreamDataModule(
+            dataset=dataset,
+            root_dir=root_dir,
             batch_size=batch_size,
             num_workers=num_workers)
     elif mode == 'evaluate':
