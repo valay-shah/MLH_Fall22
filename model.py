@@ -6,14 +6,13 @@ from torchmetrics.classification import BinaryAccuracy, BinaryAUROC
 import torchvision
 from transformers import AutoTokenizer, AutoModel
 
-
 from typing import Dict, List, Tuple, Union
 
 def get_image_encoder(name: str) -> Tuple[int, nn.Sequential]:
     if name == 'resnet18':
         model = torchvision.models.resnet18(pretrained=False)
         out_features = model.fc.in_features
-        model = nn.Sequential(*list(model.children())[:-1]) # don't include fully connected layer
+        model = nn.Sequential(*list(model.children())[:-1]) # Don't include fully connected layer
         return out_features, model
     else:
         raise ValueError(f'Unknown model {name}')
@@ -190,8 +189,11 @@ class Downstream(pl.LightningModule):
         # Only finetune image encoder weights if set, otherwise just use for inference
         if self.finetune:
             self.image_encoder.train()
+            h = self.image_encoder(x).squeeze(-1).squeeze(-1)
         else:
             self.image_encoder.eval()
-        h = self.image_encoder(x).squeeze(-1).squeeze(-1)
+            with torch.no_grad():
+                h = self.image_encoder(x).squeeze(-1).squeeze(-1)
+        
         logits = self.classifier(h)
         return logits

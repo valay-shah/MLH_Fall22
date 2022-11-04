@@ -1,14 +1,41 @@
+import numpy as np
 import pandas as pd
 from PIL import Image
 import pytorch_lightning as pl
 import torch
-from torch import utils
+from torch import nn, optim, utils
 import torchvision
 from torchvision import transforms
+import torchvision.transforms.functional as F
 from transformers import AutoTokenizer
 
 import os
-from typing import Callable, Dict, Literal, Optional
+import random
+from typing import Callable, Dict, List, Literal, Optional
+
+
+class SquarePad(nn.Module):
+    # https://discuss.pytorch.org/t/how-to-resize-and-pad-in-a-torchvision-transforms-compose/71850/5
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, image: Image):
+        w, h = image.size
+        max_wh = np.max([w, h])
+        hp = int((max_wh - w) / 2)
+        vp = int((max_wh - h) / 2)
+        padding = (hp, vp, hp, vp)
+        return F.pad(image, padding, 0, 'constant')
+
+class RandomTransformation(nn.Module):
+
+    def __init__(self, family: List[nn.Module]):
+        super().__init__()
+        self.family = family
+
+    def forward(self, image: Image):
+        transform = random.choice(self.family)
+        return transform(image)
 
 class MURADataModule(pl.LightningDataModule):
     def __init__(self, root_dir: Optional[str] = None, batch_size: int = 32, num_workers: int = 2):
@@ -47,21 +74,24 @@ class MURADataModule(pl.LightningDataModule):
                                      batch_size=self.batch_size, 
                                      num_workers=self.num_workers, 
                                      pin_memory=True,
-                                     shuffle=True)
+                                     shuffle=True,
+                                     collate_fn=lambda x: tuple(zip(*x)))
 
     def val_dataloader(self) -> utils.data.DataLoader:
         return utils.data.DataLoader(self.valid_dataset, 
                                      batch_size=self.batch_size, 
                                      num_workers=self.num_workers, 
                                      pin_memory=True,
-                                     shuffle=False)
+                                     shuffle=False,
+                                     collate_fn=lambda x: tuple(zip(*x)))
 
     def test_dataloader(self) -> utils.data.DataLoader:
         return utils.data.DataLoader(self.test_dataset, 
                                      batch_size=self.batch_size, 
                                      num_workers=self.num_workers, 
                                      pin_memory=True,
-                                     shuffle=False)
+                                     shuffle=False,
+                                     collate_fn=lambda x: tuple(zip(*x)))
 
 class MURA(utils.data.Dataset):
     def __init__(self, split: Literal['train', 'valid', 'test'], 
@@ -119,13 +149,29 @@ class PretrainDataModule(pl.LightningDataModule):
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.family = [ 
+            transforms.RandomResizedCrop(size=(224, 224),
+                                        ratio=(0.6, 1.0)), 
+            transforms.RandomHorizontalFlip(p=0.5), 
+            transforms.RandomAffine(degrees=20, 
+                                    translate=(0.0, 0.1), 
+                                    scale=(0.95, 1.05)),
+            transforms.ColorJitter(brightness=(0.6, 1.4),
+                                   contrast=(0.6, 1.4)),
+            transforms.GaussianBlur(kernel_size=3,
+                                    sigma=(0.1, 3.0),)]
+
         self.train_transform = {
             'image': transforms.Compose([
+                SquarePad(),
+                RandomTransformation(family=self.family),
                 transforms.Resize((224, 224)),
                 transforms.ToTensor()])
         }
         self.valid_transform = {
             'image': transforms.Compose([
+                SquarePad(),
+                RandomTransformation(family=self.family),
                 transforms.Resize((224, 224)),
                 transforms.ToTensor()])
         }
@@ -169,8 +215,8 @@ class MIMIC_CXR(utils.data.Dataset):
         self.image_transform = image_transform
 
     def __len__(self) -> int:
-        # TODO: Fix
-        return 2
+        # TODO: Fix with proper splits
+        return len(self.data)
 
     def __getitem__(self, index: int) -> Dict:
         image_path, report_path = self.data[index]
@@ -187,7 +233,7 @@ class MIMIC_CXR(utils.data.Dataset):
         if self.text_transform is not None:
             report = self.text_transform(report)
 
-        tokenized_report = self.tokenizer(report, padding=True, truncation=True, max_length=1024, return_tensors='pt')
+        tokenized_report = self.tokenizer(report, padding='max_length', truncation=True, max_length=512, return_tensors='pt')
         
         return {'image': image, 'report': tokenized_report}    
 
