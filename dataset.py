@@ -65,7 +65,7 @@ class DownstreamDataModule(pl.LightningDataModule):
 
     def get_dataset_split(self, dataset: utils.data.Dataset, frac: float) -> utils.data.Subset:
         num_elements = int(frac * len(dataset))
-        indices = torch.arange(num_elements)
+        indices = torch.randperm(len(dataset))[:num_elements]
         return utils.data.Subset(dataset, indices)
 
     def setup(self, stage: str):
@@ -127,7 +127,7 @@ class MURA(utils.data.Dataset):
         self.split = split
 
         if root_dir is None:
-            self.root_dir = os.path.join(os.getcwd(), 'MURA-v1.1')
+            self.root_dir = os.path.join(os.getcwd(), 'data', 'MURA-v1.1')
         else:
             self.root_dir = os.path.join(root_dir, 'MURA-v1.1')
 
@@ -213,7 +213,7 @@ class PretrainDataModule(pl.LightningDataModule):
         # self.valid_dataset = get_dataset_split(self.valid_dataset, frac=1.0)
     def get_dataset_split(self, dataset: utils.data.Dataset, frac: float) -> utils.data.Subset:
         num_elements = int(frac * len(dataset))
-        indices = torch.arange(num_elements)
+        indices = torch.randperm(len(dataset))[:num_elements]
         return utils.data.Subset(dataset, indices)
 
     def train_dataloader(self) -> utils.data.DataLoader:
@@ -287,7 +287,7 @@ class CHEXPERT(utils.data.Dataset):
                        transform: Optional[Callable] = None):
         self.split = split
         if root_dir is None:
-            self.root_dir = os.path.join(os.getcwd(), 'CheXpert-v1.0-small')
+            self.root_dir = os.path.join(os.getcwd(), 'data', 'CheXpert-v1.0-small')
         else:
             self.root_dir = os.path.join(root_dir, 'CheXpert-v1.0-small')
 
