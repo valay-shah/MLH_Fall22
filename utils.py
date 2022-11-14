@@ -61,9 +61,3 @@ def findings_impression(data_path):
     impression = lines[imp+2:]
 
     return tokenized_session(findings), tokenized_session(impression)
-
-def shuffle():
-    pass
-
-    
-
