@@ -245,12 +245,12 @@ class MIMIC_CXR(utils.data.Dataset):
 
         self.tokenizer = AutoTokenizer.from_pretrained('emilyalsentzer/Bio_ClinicalBERT')
         # TODO: os walk and split into train and validation (80/20?)
-        self.data = (
-            ('patient0/0.jpg', 'patient0/report.txt'),
-            ('patient0/1.jpg', 'patient0/report.txt'),
-            ('patient1/0.jpg', 'patient1/report.txt'),
-            ('patient1/1.jpg', 'patient1/report.txt'),
-            ('patient1/2.jpg', 'patient1/report.txt'))
+        # self.data = (
+        #     ('patient0/0.jpg', 'patient0/report.txt'),
+        #     ('patient0/1.jpg', 'patient0/report.txt'),
+        #     ('patient1/0.jpg', 'patient1/report.txt'),
+        #     ('patient1/1.jpg', 'patient1/report.txt'),
+        #     ('patient1/2.jpg', 'patient1/report.txt'))
 
         # TODO: Text transformations (extracting/splicing out sections)
         self.text_transform = text_transform
