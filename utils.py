@@ -1,15 +1,26 @@
 #!/usr/bin/env python
 
-"""File containing function to reading and performing processing on the report."""
+"""File containing function to reading, processing and loading the report."""
+
+import torch
+import torch.nn
+import numpy as np
+from torch.utils.data import Dataset
+import re
+
+
+global PAD_IDX, UNK_IDX
+UNK_IDX = 0
+PAD_IDX = 1
 
 def tokenized_session(session):
     """
-    Remove unwanted chars and tokenize the session.
+    Remove unwanted chars and tokenize the session
 
     Parameter:
     ----------
     session: list
-        A selected / sliced session from a report. i.e. it can be either FINDINGS or IMPRESSION.
+        A selected / sliced session from a report. i.e. it can be either FINDINGS or IMPRESSION
 
     Returns:
     -------
@@ -29,6 +40,7 @@ def tokenized_session(session):
 
     return tk_session
 
+
 def findings_impression(data_path):
     """
     Slice FINDINDS and IMPRESSION from a radiology report
@@ -36,7 +48,7 @@ def findings_impression(data_path):
     Parameter:
     ----------
     data_path: file path
-        A file path to ONE radiology report in .txt format.
+        A file path to ONE radiology report in .txt format
 
     Returns:
     -------
@@ -57,7 +69,135 @@ def findings_impression(data_path):
             imp = i
 
     #Slice FINDINGS and IMPRESSIONS from the report
-    findings = lines[f+2, imp-1]
+    findings = lines[f+2: imp-1]
     impression = lines[imp+2:]
 
     return tokenized_session(findings), tokenized_session(impression)
+
+
+def build_vocab(f_tokens, imp_tokens, max_vocab_size=512): 
+    """
+    Build a vocabulary dictionary
+
+    Parameters:
+    ----------
+    f_tokens: list
+        A list of tokens, where f_token[i] returns the i_th tokenized FINDINGS 
+
+    imp_tokens: list
+        A list of tokens, where imp_tokens[i] returns the i_th tokenized IMPRESSION
+
+    max_vocab_size: int
+        The maximum number of vocabularies stored in id2token and token2id
+
+    Returns:
+    --------
+    id2token: list
+        A list of tokens, where id2token[i] returns token that corresponds to token i
+
+    token2id: dictionary 
+        A dictionary where keys represent tokens and corresponding values represent indices
+    """      
+    id2token = []    
+    token2id, token_freq = {}, {}
+
+    for tokens in f_tokens:        
+        for token in tokens:            
+            if token in token_freq:                
+                token_freq[token] += 1            
+            else:                
+                token_freq[token] = 1    
+
+    for tokens in imp_tokens:        
+        for token in tokens:            
+            if token in token_freq:                
+                token_freq[token] += 1            
+            else:               
+                token_freq[token] = 1        
+            most = sorted(token_freq, key = token_freq.get, reverse = True)    
+            id2token = most[:max_vocab_size]       
+            id2token.insert(0,'<PAD>')    
+            id2token.insert(0,'<UNK>')        
+
+    for token in id2token:        
+        token2id[token] = 0       
+        token2id[token] += id2token.index(token)       
+
+    return token2id, id2token
+
+
+def token2index(tokens_data):
+    """
+    Convert token to id in the dataset
+
+    Parameters:
+    ----------
+    tokens_data: list
+        Tokenized data. tokens_data[i] returns the i_th tokenized data.
+
+    Returns:
+    --------
+    indices_data: list
+        A list of index_list (index list for each sentence)
+    """      
+    indices_data = []
+    for tokens in tokens_data:
+        index_list = []
+        for token in tokens:
+            if token in token2id: 
+                index_list.append(token2id[token]) 
+            else: index_list.append(0)
+        indices_data.append(index_list)
+
+    return indices_data
+
+
+def cxr_collate_func(batch):
+    """
+    Customized function for DataLoader that dynamically pads the batch so that all
+    data have the same length
+    """
+    tokens = []
+    len_tokens = []
+
+    for datum in batch:
+        len_tokens.append(len(datum))
+    # padding
+    for datum in batch:
+        padded_vec = np.pad(np.array(datum), pad_width=((0,max_sentence_length-len(datum))), mode="constant", constant_values=PAD_IDX)
+        tokens.append(padded_vec)
+      
+    return [torch.from_numpy(np.array(tokens)), torch.LongTensor(len_tokens)]
+
+
+class CXRDataset(Dataset):
+    """
+    Class that represents a FINDINGS or IMPRESSION data that's readable for PyTorch
+    Note that this class inherits torch.utils.data.Dataset
+    """
+    def __init__(self, indexed_tokens, max_sentence_length):
+        """
+        Parameters:
+        -----------
+        f_tokens: list
+            A list of FINDINGS tokens
+
+        imp_tokens: list 
+            A listof prem tokens
+
+        max_sentence_length: int
+            A fixed length of all sentence
+        """
+        self.indexed_tokens = indexed_tokens
+        self.max_sentence_length = max_sentence_length
+        
+    def __len__(self):
+        return len(self.indexed_tokens)
+
+    def __getitem__(self, key):
+        """
+        Triggered when you call dataset[i]
+        """
+        token_idx = self.indexed_tokens[key][:self.max_sentence_length]
+
+        return token_idx
