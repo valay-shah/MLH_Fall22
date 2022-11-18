@@ -233,15 +233,23 @@ class PretrainDataModule(pl.LightningDataModule):
 class MIMIC_CXR(utils.data.Dataset):
     def __init__(self, 
         split: Literal['train', 'valid'],
-        root_dir: Optional[str] = None,
+        root_dir_img,  # should be /vast/vs2393/mlh_dataset/physionet.org/files/mimic-cxr-jpg/2.0.0
+        root_dir_txt, # should be /vast/vs2393/mlh_dataset/ 
+        text_req, # this is helpful in deciding what text we want
         image_transform: Optional[Callable] = None, 
         text_transform: Optional[Callable] = None):
         self.split = split
-        # TODO: rename to actual MIMIC-CXR unzipped directory name
-        if root_dir is None:
-            self.root_dir = os.path.join(os.getcwd(), 'MIMIC-CXR-TEST')
+        self.df_whole = pd.read_csv("../cxr-record-list.csv")   ##/home/vs2393/mlh/MLH_Fall22/dataset.py
+        row_size = self.df_whole.shape[0]
+        if split == "train":
+            self.df = self.df_whole[1:row_size*0.7]
         else:
-            self.root_dir = os.path.join(root_dir, 'MIMIC-CXR-TEST')
+            self.df = self.df_whole[row_size*0.7:]
+        # TODO: rename to actual MIMIC-CXR unzipped directory name
+        # if root_dir is None:
+        #     self.root_dir = os.path.join(os.getcwd(), 'MIMIC-CXR-TEST')
+        # else:
+        #     self.root_dir = os.path.join(root_dir, 'MIMIC-CXR-TEST')
 
         self.tokenizer = AutoTokenizer.from_pretrained('emilyalsentzer/Bio_ClinicalBERT')
         # TODO: os walk and split into train and validation (80/20?)
@@ -253,33 +261,84 @@ class MIMIC_CXR(utils.data.Dataset):
         #     ('patient1/2.jpg', 'patient1/report.txt'))
 
         # TODO: Text transformations (extracting/splicing out sections)
-        self.text_transform = text_transform
+        #self.text_transform = text_transform
         # TODO: Image transformations (square padding -> resize -> below image transformations)
         #       - cropping, horizontal flipping, affine transformation, color jittering and Gaussian blur
-        self.image_transform = image_transform
+        #self.image_transform = image_transform
 
     def __len__(self) -> int:
         # TODO: Fix with proper splits
         return len(self.data)
 
     def __getitem__(self, index: int) -> Dict:
-        image_path, report_path = self.data[index]
-        image_path = os.path.join(self.root_dir, image_path)
+        image_path_with_dcm = self.df[index+1][3]
+        image_path_with_jpg = image_path_with_dcm.split(".")[0] + ".jpg"
+        image_path = os.path.join(self.root_dir_img, image_path_with_jpg)
         image = Image.open(image_path).convert('RGB')
-        if self.image_transform is not None:
-            image = self.image_transform(image)
+        #if self.image_transform is not None:
+            #image = self.image_transform(image)
 
-        report_path = os.path.join(self.root_dir, report_path)
+        report_path = "/".join(self.df[index+1][3].split("/")[:-1]) + ".txt"
+        report_path = os.path.join(self.root_dir_txt, report_path)
         with open(report_path, 'r') as f:
             lines = f.readlines()
-        
-        report = ''.join(lines)
-        if self.text_transform is not None:
-            report = self.text_transform(report)
+        fin, imp = None, None
+        for i in range(len(lines)):
+            line = lines[i]
+            if 'FINDINGS' in line:
+                fin = i
+            if 'IMPRESSION' in line:
+                imp = i
 
-        tokenized_report = self.tokenizer(report, padding='max_length', truncation=True, max_length=512, return_tensors='pt')
+        #Slice FINDINGS and IMPRESSIONS from the report
+        if text_req == "findings":
+            if fin is not None:
+                findings = lines[fin+2: imp-1]
+                finding_session = ''
+                for line in findings:
+                    line = re.sub(r'[\n,.]', '', line)
+                    line = re.sub(r'^ ', '', line)
+                    finding_session += line
+                #finding_session_array = finding_session.split(".")
+                #shuffled_sentences = ".".join(random.shuffle(finding_session_array))
+                tokenized_finding = self.tokenizer(finding_session, padding='max_length', truncation=True, max_length=512, return_tensors='pt', shuffle=True)
+                return {'image': image, 'report': tokenized_finding}
+
+        elif text_req == "impressions":
+            if imp is not None:
+                impression = lines[imp+2:]
+                impression_session = ''
+                for line in impression:
+                    line = re.sub(r'[\n,.]', '', line)
+                    line = re.sub(r'^ ', '', line)
+                    impression_session += line
+                #impression_session_array = impression_session.split(".")
+                #shuffled_sentences = ".".join(random.shuffle(impression_session_array))
+                tokenized_impression = self.tokenizer(impression_session, padding='max_length', truncation=True, max_length=512, return_tensors='pt', shuffle=True)
+                return {'image': image, 'report': tokenized_impression}
+
+        else:
+            if fin is not None and imp is not None:
+                imp_fin = lines[fin+2:]
+                imp_fin_session = ''
+                for line in imp_fin:
+                    line = re.sub(r'[\n,.]', '', line)
+                    line = re.sub(r'^ ', '', line)
+                    imp_fin_session += line
+                #imp_fin_session_array = imp_fin_session.split(".")
+                #shuffled_sentences = ".".join(random.shuffle(imp_fin_session_array))
+                tokenized_impression = self.tokenizer(imp_fin_session, padding='max_length', truncation=True, max_length=512, return_tensors='pt', shuffle=True)
+                return {'image': image, 'report': tokenized_impression}
+        # impression = lines[imp+2:]
+        # if text_req == "findings":
+
+        # report = ''.join(lines)
+        # if self.text_transform is not None:
+        #     report = self.text_transform(report)
+
+        # tokenized_report = self.tokenizer(report, padding='max_length', truncation=True, max_length=512, return_tensors='pt')
         
-        return {'image': image, 'report': tokenized_report}    
+            
 
 class CHEXPERT(utils.data.Dataset):
     def __init__(self, split: Literal['train', 'valid', 'test'],
