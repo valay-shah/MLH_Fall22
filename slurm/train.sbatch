@@ -1,6 +1,8 @@
 #!/bin/bash -e
 
-#SBATCH --nodes=1                        
+#SBATCH --account=csci_ga_3033_083-2022fa          
+#SBATCH --partition=n1c10m64-v100-1
+#SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1              
 #SBATCH --cpus-per-task=4                
 #SBATCH --time=00:15:00
