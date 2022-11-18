@@ -8,13 +8,13 @@ If it is the first time using Weights & Biases, then `wandb login` should be exe
     python experiment.py --experiment config/reference.yaml
 ```
 
-
 ### Running an Experiment on NYU HPC Greene with SLURM
 First, clone the repository to `/scratch/$HOME`.
 Then, execute the following:
 ```bash
     sbatch slurm/train.sbatch config/reference.yaml
 ```
+where `slurm/train.sbatch` is the type of SLURM job and `config/reference.yaml` is the experiment YAML configuration.
 
 ## Experiment Configuration
 This section will explain the configuration for running experiments.
