@@ -1,5 +1,5 @@
 # Reference YAML
-name: test # Note: will override saved models
+name: test_pretrain # Note: will override saved models
 mode: pretrain # pretrain, downstream, or evaluate
 seed: 0 # Optional (Default: 0)
 debug: True # Optional (Default: False)

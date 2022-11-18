@@ -1,18 +1,10 @@
 # Machine Learning for Healthcare
 
-## Setting up the Virtual Environment
-```bash
-    python3 -m venv venv
-    python3 -m venv venv --system-site-packages
-    source venv/bin/activate
-    pip install -r requirements.txt
-```
-
 If it is the first time using Weights & Biases, then `wandb login` should be executed before running an experiment.
 
 ## Running an Experiment
 ```bash
-    source venv/bin/activate
+    conda activate /scratch/csp9835/penv
     python experiment.py --experiment config/reference.yaml
 ```
 

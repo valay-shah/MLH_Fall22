@@ -65,8 +65,9 @@ def run(args: argparse.Namespace):
             model_kwargs=model_kwargs,
             criterion_kwargs=criterion_kwargs,
             optimizer_kwargs=optimizer_kwargs)
+        mimic_cxr_root_dir = '/vast/vs2393/mlh_dataset/' # root_dir of MIMIC_CXR data is in /vast (Comment out to inherit otherwise)
         datamodule = PretrainDataModule(
-            root_dir=root_dir,
+            root_dir=mimic_cxr_root_dir,
             batch_size=batch_size, 
             num_workers=num_workers)
 

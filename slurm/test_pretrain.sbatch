@@ -6,9 +6,9 @@
 #SBATCH --time=00:15:00
 #SBATCH --mem=16GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=mlh_dataset
-#SBATCH --output=slurm/jobs/train.out
-#SBATCH --error=slurm/jobs/train.err
+#SBATCH --job-name=mlh_test
+#SBATCH --output=slurm/jobs/mlh_test.out
+#SBATCH --error=slurm/jobs/mlh_test.err
 
 experiment_config=$1
 
