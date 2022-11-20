@@ -6,6 +6,7 @@ from torch import nn, optim, utils
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
+import wandb
 import yaml
 
 import argparse
@@ -47,15 +48,17 @@ def run(args: argparse.Namespace):
 
     # Setup Reproducibility & Debugging
     pl.seed_everything(seed, workers=True)
-    limit_train_batches = 100 if debug else 1.0
-    limit_val_batches = 100 if debug else 1.0
-    limit_test_batches = 100 if debug else 1.0
+    limit_train_batches = 10 if debug else 1.0
+    limit_val_batches = 10 if debug else 1.0
+    limit_test_batches = 10 if debug else 1.0
 
     # Setup W&B
-    wandb_dir = '__pycache__/'
+    #wandb_dir = '__pycache__/'
     wandb_logger = WandbLogger(
         project=experiment_name,
-        save_dir=wandb_dir)
+        #save_dir=wandb_dir,
+        mode='offline',
+        settings=wandb.Settings(start_method="fork"))
 
     # Initialize Lightning Module and Data Module
     os.environ['TOKENIZERS_PARALLELISM'] = 'false' # https://github.com/huggingface/transformers/issues/5486
