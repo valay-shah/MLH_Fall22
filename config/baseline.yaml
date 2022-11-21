@@ -22,7 +22,7 @@ optimizer_kwargs:
 
 train:
   frac: 1.0 # Optional: (Default: 1.0)
-  max_epochs: 5 # Optional (Default: 1)
+  max_epochs: 10 # Optional (Default: 1)
 
 downstream:
   frac: 0.01 # Optional: (Default: 1.0)
