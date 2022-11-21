@@ -312,23 +312,23 @@ class MIMIC_CXR(utils.data.Dataset):
         impression = lines[imp_start: imp_end +1]
 
         #Tokenize
-        if text_req == "findings":
+        if self.text_req == "findings":
             if fin_start:
                 finding_session = tokenized_session(findings)
-                tokenized_finding = self.tokenizer(finding_session, padding='max_length', truncation=True, max_length=512, return_tensors='pt', shuffle=True)
+                tokenized_finding = self.tokenizer(finding_session, padding='max_length', truncation=True, max_length=512, return_tensors='pt')
                 return {'image': image, 'report': tokenized_finding}
 
-        elif text_req == "impressions":
+        elif self.text_req == "impressions":
             if imp_start:
                 impression_session = tokenized_session(impression)
-                tokenized_impression = self.tokenizer(impression_session, padding='max_length', truncation=True, max_length=512, return_tensors='pt', shuffle=True)
+                tokenized_impression = self.tokenizer(impression_session, padding='max_length', truncation=True, max_length=512, return_tensors='pt')
                 return {'image': image, 'report': tokenized_impression}
 
         else:
             if fin_start and imp_start:
                 imp_fin = findings + impression
                 imp_fin_session = tokenized_session(imp_fin)
-                tokenized_impression = self.tokenizer(imp_fin_session, padding='max_length', truncation=True, max_length=512, return_tensors='pt', shuffle=True)
+                tokenized_impression = self.tokenizer(imp_fin_session, padding='max_length', truncation=True, max_length=512, return_tensors='pt')
                 return {'image': image, 'report': tokenized_impression}
         
             
