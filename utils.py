@@ -54,21 +54,21 @@ def fin_imp_place(lines):
     finding_idx = section_order.index('fin')
 
     if finding_idx == len(section_order) - 1: #FINDINGS is the very last section
-        fin_end = len(lines) - 1
+        fin_end = len(lines)
     else: #if FINDINGS is *not* the last section, find where FINDINGS ends by looking at the next section after FINDINGS
         finding_next = finding_idx + 1
         next_section = section_order[finding_next] #get the name of the next section
-        fin_end = section_order_dict[next_section] - 2 #get where the next section starts in the report
+        fin_end = section_order_dict[next_section] - 1 #get where the next section starts in the report
 
     #Same thing for IMPRESSION
     impression_idx = section_order.index('imp')
 
-    if impression_idx == len(section_order): #IMPRESSION is the very last section
-        imp_end = len(lines) - 1
+    if impression_idx == len(section_order) - 1: #IMPRESSION is the very last section
+        imp_end = len(lines)
     else: #if IMPRSSION is *not* the last section, find where IMPRSSION ends by looking at the next section after IMPRESSION
         impression_next = impression_idx + 1
         next_section = section_order[impression_next]
-        imp_end = section_order_dict[next_section] - 2
+        imp_end = section_order_dict[next_section] - 1
 
     return fin_start, fin_end, imp_start, imp_end
 
