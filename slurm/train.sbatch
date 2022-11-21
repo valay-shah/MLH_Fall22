@@ -1,16 +1,14 @@
 #!/bin/bash -e
 
-#SBATCH --account=csci_ga_3033_083-2022fa          
-#SBATCH --partition=n1c10m64-v100-1
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1              
 #SBATCH --cpus-per-task=4                
-#SBATCH --time=00:15:00
+#SBATCH --time=24:00:00
 #SBATCH --mem=16GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=mlh_dataset
-#SBATCH --output=slurm/jobs/train.out
-#SBATCH --error=slurm/jobs/train.err
+#SBATCH --job-name=mlh_baseline
+#SBATCH --output=slurm/jobs/baseline.out
+#SBATCH --error=slurm/jobs/baseline.err
 
 experiment_config=$1
 

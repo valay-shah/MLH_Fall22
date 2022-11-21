@@ -247,6 +247,14 @@ class MIMIC_CXR(utils.data.Dataset):
         self.df_whole = pd.read_csv(os.path.join(self.root_dir_txt, "cxr-record-list.csv"))   ##/home/vs2393/mlh/MLH_Fall22/dataset.py
         row_size = self.df_whole.shape[0]
         self.df = self.df_whole
+        with open('missing_reports.txt', 'r') as f:
+            lines = f.readlines()
+        indices_to_drop = []
+        for line in lines:
+            index, file_path = line.strip().split()
+            indices_to_drop.append(int(index))
+        self.df.drop(indices_to_drop, inplace=True)
+        self.df.reset_index(drop=True, inplace=True)
         #if split == "train":
         #    self.df = self.df_whole.iloc[1:int(row_size*0.7)]
         # else:
@@ -277,17 +285,21 @@ class MIMIC_CXR(utils.data.Dataset):
         return len(self.df)
 
     def __getitem__(self, index: int) -> Dict:
-        image_path_with_dcm = self.df.iloc[index+1][3]
+        if isinstance(index, torch.Tensor):
+            index = int(index.item())
+        print(index, type(index))
+        image_path_with_dcm = self.df.iloc[index+1]['path']
         image_path_with_jpg = image_path_with_dcm.split(".")[0] + ".jpg"
         image_path = os.path.join(self.root_dir_img, image_path_with_jpg)
         image = Image.open(image_path).convert('RGB')
         if self.image_transform is not None:
             image = self.image_transform(image)
-        print(type(image))
+        #print(type(image))
         report_path = "/".join(self.df.loc[index+1][3].split("/")[:-1]) + ".txt"
         report_path = os.path.join(self.root_dir_txt, report_path)
         with open(report_path, 'r') as f:
             lines = f.readlines()
+        #print(lines)
         fin, imp = None, None
         for i in range(len(lines)):
             line = lines[i]
@@ -324,10 +336,10 @@ class MIMIC_CXR(utils.data.Dataset):
                 return {'image': image, 'report': tokenized_impression}
 
         else:
-            print(fin is None)
-            print(fin)
-            print(imp is None)
-            print(imp)
+            #print(fin is None)
+            #print(fin)
+            #print(imp is None)
+            #print(imp)
             if fin is not None and imp is not None:
                 imp_fin = lines[fin+2:]
                 imp_fin_session = ''
