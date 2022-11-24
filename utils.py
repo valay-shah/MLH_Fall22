@@ -95,7 +95,7 @@ def tokenized_session(session):
         tk_session += line
 
     #Tokenize
-    tk_session = tk_session.split(' ')
+    #tk_session = tk_session.split(' ')
 
     return tk_session
 

@@ -290,15 +290,14 @@ class MIMIC_CXR(utils.data.Dataset):
     def __getitem__(self, index: int) -> Dict:
         if isinstance(index, torch.Tensor):
             index = int(index.item())
-        print(index, type(index))
-        image_path_with_dcm = self.df.iloc[index+1]['path']
+        image_path_with_dcm = self.df.loc[index]['path']
         image_path_with_jpg = image_path_with_dcm.split(".")[0] + ".jpg"
         image_path = os.path.join(self.root_dir_img, image_path_with_jpg)
         image = Image.open(image_path).convert('RGB')
         if self.image_transform is not None:
             image = self.image_transform(image)
         #print(type(image))
-        report_path = "/".join(self.df.loc[index+1][3].split("/")[:-1]) + ".txt"
+        report_path = "/".join(image_path_with_dcm.split("/")[:-1]) + ".txt"
         report_path = os.path.join(self.root_dir_txt, report_path)
 
         with open(report_path, 'r') as f:

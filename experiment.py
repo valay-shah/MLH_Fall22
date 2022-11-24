@@ -11,6 +11,7 @@ import yaml
 
 import argparse
 import os
+import sys
 
 
 def run(args: argparse.Namespace):
@@ -38,11 +39,11 @@ def run(args: argparse.Namespace):
 
     # Train Configuration
     train_config = settings.get('train', dict())
-    max_epochs = train_config.get('max_epochs', 1)
+    train_max_epochs = train_config.get('max_epochs', 1)
 
     # Downtream Configuration
     downstream_config = settings.get('downstream', dict())
-    max_epochs = downstream_config.get('max_epochs', 1)
+    downstream_max_epochs = downstream_config.get('max_epochs', 1)
     finetune = downstream_config.get('finetune', True)
     dataset = downstream_config.get('dataset')
 
@@ -106,18 +107,19 @@ def run(args: argparse.Namespace):
         limit_train_batches=limit_train_batches,
         limit_val_batches=limit_val_batches,
         limit_test_batches=limit_test_batches,
-        max_epochs=max_epochs,
+        max_epochs=train_max_epochs if mode == 'pretrain' else downstream_max_epochs,
         accelerator='auto',
         devices='auto',
         callbacks=[model_checkpoint, early_stop_callback, lr_monitor],
         deterministic=True,
         logger=wandb_logger)
-
+    
+    print('Training model...')
     trainer.fit(model, datamodule=datamodule)
-
+    print('Training finished.')
     # Evaluate Model
     # trainer.test(model, datamodule)
-
+    sys.exit(0)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

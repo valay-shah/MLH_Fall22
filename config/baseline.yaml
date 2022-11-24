@@ -2,7 +2,7 @@
 name: baseline # Note: will override saved models
 mode: pretrain # pretrain, downstream, or evaluate
 seed: 0 # Optional (Default: 0)
-debug: True # Optional (Default: False)
+debug: False # Optional (Default: False)
 batch_size: 32 # Optional (Default: 32)
 num_workers: 4 # Optional (Default: 4)
 checkpoint_path: checkpoints/ # Optional (Default: checkpoints/)
