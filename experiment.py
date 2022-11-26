@@ -94,7 +94,7 @@ def run(args: argparse.Namespace):
         raise ValueError(f'Unknown mode {mode}')
 
     # Initialize Callbacks
-    early_stop_callback = EarlyStopping(monitor='val_loss', patience=2, verbose=False, mode='min')
+    early_stop_callback = EarlyStopping(monitor='train_loss', patience=2, verbose=False, mode='min')
     dirpath = os.path.join(checkpoint_path, experiment_name)
     model_checkpoint = ModelCheckpoint(
         monitor='train_loss',
