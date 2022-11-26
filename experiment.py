@@ -40,6 +40,7 @@ def run(args: argparse.Namespace):
     # Train Configuration
     train_config = settings.get('train', dict())
     train_max_epochs = train_config.get('max_epochs', 1)
+    train_frac = train_config.get('frac', 1.0)
 
     # Downtream Configuration
     downstream_config = settings.get('downstream', dict())
@@ -73,7 +74,8 @@ def run(args: argparse.Namespace):
         datamodule = PretrainDataModule(
             root_dir=mimic_cxr_root_dir,
             batch_size=batch_size, 
-            num_workers=num_workers)
+            num_workers=num_workers,
+            frac=train_frac)
 
     elif mode == 'downstream':
         model_checkpoint = os.path.join(checkpoint_path, experiment_name, 'pretrain.ckpt')
@@ -95,7 +97,7 @@ def run(args: argparse.Namespace):
     early_stop_callback = EarlyStopping(monitor='val_loss', patience=2, verbose=False, mode='min')
     dirpath = os.path.join(checkpoint_path, experiment_name)
     model_checkpoint = ModelCheckpoint(
-        monitor='val_loss',
+        monitor='train_loss',
         save_top_k=1, 
         mode='min',
         dirpath=dirpath,

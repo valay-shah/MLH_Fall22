@@ -21,8 +21,8 @@ optimizer_kwargs:
   lr: 1.e-4 # Note: to ensure floats are processed correctly in scientific format, use a decimal seperator
 
 train:
-  frac: 1.0 # Optional: (Default: 1.0)
-  max_epochs: 10 # Optional (Default: 1)
+  frac: 0.1 # Optional: (Default: 1.0)
+  max_epochs: 30 # Optional (Default: 1)
 
 downstream:
   frac: 0.01 # Optional: (Default: 1.0)

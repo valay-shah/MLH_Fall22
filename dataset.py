@@ -211,9 +211,10 @@ class PretrainDataModule(pl.LightningDataModule):
 
     def setup(self, stage: str):
         self.train_dataset = MIMIC_CXR(split='train', text_req=self.text_req, image_transform=self.train_transform['image'])
-        self.valid_dataset = MIMIC_CXR(split='valid', text_req=self.text_req, image_transform=self.valid_transform['image'])
+        #self.valid_dataset = MIMIC_CXR(split='valid', text_req=self.text_req, image_transform=self.valid_transform['image'])
 
         self.train_dataset = self.get_dataset_split(self.train_dataset, frac=self.frac)
+        #self.valid_dataset = self.get_dataset_split(self.valid_dataset, frac=self.frac)
 
         # self.valid_dataset = get_dataset_split(self.valid_dataset, frac=1.0)
     def get_dataset_split(self, dataset: utils.data.Dataset, frac: float) -> utils.data.Subset:
@@ -228,12 +229,12 @@ class PretrainDataModule(pl.LightningDataModule):
                                      pin_memory=True,
                                      shuffle=True)
 
-    def val_dataloader(self) -> utils.data.DataLoader:
-        return utils.data.DataLoader(self.valid_dataset, 
-                                     batch_size=self.batch_size, 
-                                     num_workers=self.num_workers, 
-                                     pin_memory=True,
-                                     shuffle=False)
+    #def val_dataloader(self) -> utils.data.DataLoader:
+    #    return utils.data.DataLoader(self.valid_dataset, 
+    #                                 batch_size=self.batch_size, 
+    #                                 num_workers=self.num_workers, 
+    #                                 pin_memory=True,
+    #                                 shuffle=False)
 
 class MIMIC_CXR(utils.data.Dataset):
     def __init__(self, 
