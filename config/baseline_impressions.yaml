@@ -1,5 +1,5 @@
 # Reference YAML
-name: baseline_both # Note: will override saved models
+name: baseline_impressions # Note: will override saved models
 mode: pretrain # pretrain, downstream, or evaluate
 seed: 0 # Optional (Default: 0)
 debug: False # Optional (Default: False)
@@ -23,7 +23,7 @@ optimizer_kwargs:
 train:
   frac: 0.1 # Optional: (Default: 1.0)
   max_epochs: 30 # Optional (Default: 1)
-  text_req: both # Optional (Default: both)
+  text_req: impressions # Optional (Default: both)
 
 downstream:
   frac: 0.01 # Optional: (Default: 1.0)

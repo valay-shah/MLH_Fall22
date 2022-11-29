@@ -29,7 +29,7 @@ class ContrastiveLoss(nn.Module):
         '''
         batch_size = v.shape[0]
         numerator = torch.exp(F.cosine_similarity(v, u) / self.temperature)
-        denominator = numerator.detach().clone()
+        denominator = numerator.detach().clone().zero_()
         for i in range(denominator.shape[0]):
             for j in range(batch_size):
                 denominator[i] += torch.exp(F.cosine_similarity(v[i], u[j], dim=0) / self.temperature)

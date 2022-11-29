@@ -41,6 +41,7 @@ def run(args: argparse.Namespace):
     train_config = settings.get('train', dict())
     train_max_epochs = train_config.get('max_epochs', 1)
     train_frac = train_config.get('frac', 1.0)
+    train_text_req = train_config.get('text_req', 'both')
 
     # Downtream Configuration
     downstream_config = settings.get('downstream', dict())
