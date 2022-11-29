@@ -112,7 +112,8 @@ def run(args: argparse.Namespace):
         max_epochs=train_max_epochs if mode == 'pretrain' else downstream_max_epochs,
         accelerator='auto',
         devices='auto',
-        callbacks=[model_checkpoint, early_stop_callback, lr_monitor],
+        #callbacks=[model_checkpoint, early_stop_callback, lr_monitor],
+        callbacks=[model_checkpoint, lr_monitor],
         deterministic=True,
         logger=wandb_logger)
     
