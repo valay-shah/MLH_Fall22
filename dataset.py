@@ -161,6 +161,8 @@ class MURA(utils.data.Dataset):
         return len(self.data[self.split]['image_paths'])
 
     def __getitem__(self, index: int) -> Dict:
+        if isinstance(index, torch.Tensor):
+            index = int(index.item())
         image_path = self.data[self.split]['image_paths'].loc[index][0]
         study_dir = os.path.dirname(image_path) + '/'
         labels = self.data[self.split]['image_labels']
@@ -363,6 +365,8 @@ class CHEXPERT(utils.data.Dataset):
         return len(self.data[self.split])
 
     def __getitem__(self, index: int) -> Dict:
+        if isinstance(index, torch.Tensor):
+            index = int(index.item())
         # TODO: Get label
         image_path = self.data[self.split]['Path'].loc[index]
         image_path = os.path.join(os.path.dirname(self.root_dir), image_path)
