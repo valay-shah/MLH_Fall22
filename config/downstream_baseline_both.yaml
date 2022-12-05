@@ -29,5 +29,5 @@ train:
 downstream:
   frac: 1.0 # Optional: (Default: 1.0)
   dataset: MURA # MURA or CHEXPERT
-  max_epochs: 30 # Optional (Default: 1)
+  max_epochs: 5 # Optional (Default: 1)
   

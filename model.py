@@ -2,7 +2,7 @@ import pytorch_lightning as pl
 import torch
 from torch import nn, optim, utils
 import torch.nn.functional as F
-from torchmetrics.classification import BinaryAccuracy, BinaryAUROC
+from torchmetrics.classification import BinaryF1Score, F1Score, BinaryRecall, Recall, BinaryPrecision, Precision
 import torchvision
 from transformers import AutoTokenizer, AutoModel
 
@@ -131,16 +131,59 @@ class ModifiedConVIRT(nn.Module):
 
         return repr_image_batch, repr_findings_batch, repr_impressions_batch
 
-class Pretrain(pl.LightningModule):
-    def __init__(self, model_kwargs: Dict, criterion_kwargs: Dict, optimizer_kwargs: Dict, modified_model: bool = False):
+class ModifiedPretrain(pl.LightningModule):
+    def __init__(self, model_kwargs: Dict, criterion_kwargs: Dict, optimizer_kwargs: Dict):
         super().__init__()
-        self.modified_model = modified_model
+        self.model = ModifiedConVIRT(**model_kwargs)
+        self.criterion = ModifiedConVIRTLoss(**criterion_kwargs)
+        self.optimizer_kwargs = optimizer_kwargs
+        self.save_hyperparameters()
+
+    def training_step(self, batch: Dict[str, Union[torch.Tensor, Dict]], batch_idx: int) -> Dict:
         if self.modified_model:
-            self.model = ModifiedConVIRT(**model_kwargs)
-            self.criterion = ModifiedConVIRTLoss(**criterion_kwargs)
+            image_batch = batch['image']
+            findings_batch = batch['findings']
+            impressions_batch = batch['impressions']
+            repr_image_batch, repr_findings_batch, repr_impressions_batch = self(image_batch, findings_batch, impressions_batch)
+
+            loss = self.criterion(repr_image_batch, repr_findings_batch, repr_impressions_batch)
         else:
-            self.model = ConVIRT(**model_kwargs)
-            self.criterion = ConVIRTLoss(**criterion_kwargs)
+            image_batch = batch['image']
+            text_batch = batch['report']
+            repr_image_batch, repr_text_batch = self(image_batch, text_batch)
+        
+            loss = self.criterion(repr_image_batch, repr_text_batch)
+        self.log('train_loss', loss)
+
+        return {'loss': loss}
+
+    def validation_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> Dict:
+        image_batch = batch['image']
+        text_batch = batch['report']
+
+        repr_image_batch, repr_text_batch = self(image_batch, text_batch)
+        loss = self.criterion(repr_image_batch, repr_text_batch)
+        self.log('val_loss', loss)
+
+        return {'val_loss': loss}
+
+    def validation_epoch_end(self, outputs: List[dict]):
+        avg_loss = torch.stack([output['val_loss'] for output in outputs]).mean()
+        self.log('val_loss', avg_loss)
+
+        return {'val_loss': avg_loss}
+
+    def configure_optimizers(self):
+        return optim.AdamW(self.parameters(), **self.optimizer_kwargs)
+
+    def forward(self, image_batch: torch.Tensor, text_batch: Dict[str, torch.Tensor]) -> torch.Tensor:
+        return self.model(image_batch, text_batch)
+
+class Pretrain(pl.LightningModule):
+    def __init__(self, model_kwargs: Dict, criterion_kwargs: Dict, optimizer_kwargs: Dict):
+        super().__init__()
+        self.model = ConVIRT(**model_kwargs)
+        self.criterion = ConVIRTLoss(**criterion_kwargs)
         self.optimizer_kwargs = optimizer_kwargs
         self.save_hyperparameters()
 
@@ -185,26 +228,32 @@ class Pretrain(pl.LightningModule):
         return self.model(image_batch, text_batch)
 
 class Downstream(pl.LightningModule):
-    def __init__(self, model_checkpoint: str, optimizer_kwargs: Dict, modified_model: bool = False):
+    def __init__(self, model_checkpoint: str, optimizer_kwargs: Dict, modified_model: bool = False, num_classes: int = 2):
         super().__init__()
-        convirt_model = torch.load(model_checkpoint)['model']
+        pretrain_module = ModifiedPretrain if modified_model else Pretrain
+        convirt_model = pretrain_module.load_from_checkpoint(model_checkpoint).model
         self.image_encoder = convirt_model.image_encoder
         out_dim = convirt_model.out_dim
         self.optimizer_kwargs = optimizer_kwargs
-        self.classifier = nn.Linear(out_dim, 1)
+        self.num_classes = 1 if num_classes == 2 else num_classes
+        self.f1 = BinaryF1Score() if self.num_classes == 1 else F1Score(task='multiclass', num_classes=self.num_classes)
+        self.recall = BinaryRecall() if self.num_classes == 1 else Recall(task='multiclass', average='macro', num_classes=self.num_classes)
+        self.prec = BinaryPrecision() if self.num_classes == 1 else Precision(task='multiclass', average='macro', num_classes=self.num_classes)
+        self.classifier = nn.Linear(out_dim, self.num_classes)
+        self.loss_func = F.binary_cross_entropy_with_logits if self.num_classes == 1 else F.cross_entropy
 
     def training_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> Dict:
         images = batch['image']
         y = batch['label'].unsqueeze(1).float()
 
         y_hat = self(images)
-        loss = F.binary_cross_entropy_with_logits(y_hat, y)
-        # TODO: Fix metrics
-        # accuracy = BinaryAccuracy(y_hat, y, threshold=0.5)
-        # auroc = BinaryAUROC(y_hat, y)
-        # metrics = {'train_loss': loss, 'train_accuracy': accuracy,  'train_auroc': auroc}
-        # self.log_dic(metrics)
-        self.log('train_loss', loss)
+        loss = self.loss_func(y_hat, y)
+        f1 = self.f1(y_hat, y)
+        prec = self.prec(y_hat, y)
+        recall = self.recall(y_hat, y)
+        metrics = {'train_loss': loss, 'train_f1': f1,  'train_prec': prec, 'train_recall': recall}
+        self.log_dict(metrics)
+        # self.log('train_loss', loss)
 
         return {'loss': loss}
 
@@ -213,12 +262,13 @@ class Downstream(pl.LightningModule):
         y = batch['label'].unsqueeze(1).float()
 
         y_hat = self(images)
-        loss = F.binary_cross_entropy_with_logits(y_hat, y)
-        # accuracy = BinaryAccuracy(y_hat, y, threshold=0.5)
-        # auroc = BinaryAUROC(y_hat, y)
-        # metrics = {'val_loss': loss, 'val_accuracy': accuracy,  'val_auroc': auroc}
-        # self.log_dic(metrics)
-        self.log('val_loss', loss)
+        loss = self.loss_func(y_hat, y)
+        f1 = self.f1(y_hat, y)
+        prec = self.prec(y_hat, y)
+        recall = self.recall(y_hat, y)
+        metrics = {'val_loss': loss, 'val_f1': f1,  'val_prec': prec, 'val_recall': recall}
+        self.log_dict(metrics)
+        # self.log('val_loss', loss)
 
         return {'val_loss': loss}
 
@@ -227,25 +277,25 @@ class Downstream(pl.LightningModule):
         y = batch['label'].unsqueeze(1).float()
 
         y_hat = self(images)
-        loss = F.binary_cross_entropy_with_logits(y_hat, y)
-        # accuracy = BinaryAccuracy(y_hat, y, threshold=0.5)
-        # auroc = BinaryAUROC(y_hat, y)
-        # metrics = {'test_loss': loss, 'test_accuracy': accuracy,  'test_auroc': auroc}
-        # self.log_dic(metrics)
-        self.log('test_loss', loss)
+        loss = self.loss_func(y_hat, y)
+        loss = self.loss_func(y_hat, y)
+        f1 = self.f1(y_hat, y)
+        prec = self.prec(y_hat, y)
+        recall = self.recall(y_hat, y)
+        metrics = {'test_loss': loss, 'test_f1': f1,  'test_prec': prec, 'test_recall': recall}
+        self.log_dict(metrics)
+        # self.log('test_loss', loss)
 
         return {'test_loss': loss}
 
     def validation_epoch_end(self, outputs: List[dict]):
         avg_loss = torch.stack([output['val_loss'] for output in outputs]).mean()
         self.log('val_loss', avg_loss)
-
         return {'val_loss': avg_loss}
 
     def test_epoch_end(self, outputs: List[dict]):
         avg_loss = torch.stack([output['test_loss'] for output in outputs]).mean()
         self.log('test_loss', avg_loss)
-
         return {'test_loss': avg_loss}
 
     def configure_optimizers(self):

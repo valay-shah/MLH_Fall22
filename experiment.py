@@ -1,5 +1,5 @@
 from dataset import PretrainDataModule, DownstreamDataModule
-from model import Pretrain, Downstream
+from model import Pretrain, ModifiedPretrain, Downstream
 
 import torch
 from torch import nn, optim, utils
@@ -67,11 +67,11 @@ def run(args: argparse.Namespace):
     os.environ['TOKENIZERS_PARALLELISM'] = 'false' # https://github.com/huggingface/transformers/issues/5486
 
     if mode == 'pretrain':
-        model = Pretrain(
+        module = ModifiedPretrain if train_modified_model else Pretrain
+        model = module(
             model_kwargs=model_kwargs,
             criterion_kwargs=criterion_kwargs,
-            optimizer_kwargs=optimizer_kwargs,
-            modified_model=train_modified_model)
+            optimizer_kwargs=optimizer_kwargs)
         mimic_cxr_root_dir = '/vast/vs2393/mlh_dataset/' # root_dir of MIMIC_CXR data is in /vast (Comment out to inherit otherwise)
         datamodule = PretrainDataModule(
             root_dir=mimic_cxr_root_dir,
@@ -83,7 +83,6 @@ def run(args: argparse.Namespace):
         model_checkpoint = os.path.join(checkpoint_path, experiment_name, 'pretrain.ckpt')
         model = Downstream(
             model_checkpoint=model_checkpoint,
-            finetune=finetune,
             optimizer_kwargs=optimizer_kwargs,
             modified_model=train_modified_model)
         datamodule = DownstreamDataModule(
@@ -97,6 +96,7 @@ def run(args: argparse.Namespace):
         raise ValueError(f'Unknown mode {mode}')
 
     # Initialize Callbacks
+    # Remove?
     early_stop_callback = EarlyStopping(monitor='val_loss', patience=2, verbose=False, mode='min')
     dirpath = os.path.join(checkpoint_path, experiment_name)
     model_checkpoint = ModelCheckpoint(
@@ -117,7 +117,7 @@ def run(args: argparse.Namespace):
         strategy='ddp',
         devices=-1,
         auto_select_gpus=True,
-        callbacks=[model_checkpoint, lr_monitor] if mode == 'pretrain' else [model_checkpoint, early_stop_callback, lr_monitor],
+        callbacks=[model_checkpoint, lr_monitor],
         deterministic=True,
         logger=wandb_logger)
     
@@ -125,7 +125,10 @@ def run(args: argparse.Namespace):
     trainer.fit(model, datamodule=datamodule)
     print('Training finished.')
     # Evaluate Model
-    # trainer.test(model, datamodule)
+    if mode == 'downstream':
+        print('Evaluating model...')
+        trainer.test(model, datamodule)
+        print('Evaluation finished.')
     sys.exit(0)
 
 if __name__ == '__main__':
