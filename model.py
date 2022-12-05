@@ -188,19 +188,11 @@ class Pretrain(pl.LightningModule):
         self.save_hyperparameters()
 
     def training_step(self, batch: Dict[str, Union[torch.Tensor, Dict]], batch_idx: int) -> Dict:
-        if self.modified_model:
-            image_batch = batch['image']
-            findings_batch = batch['findings']
-            impressions_batch = batch['impressions']
-            repr_image_batch, repr_findings_batch, repr_impressions_batch = self(image_batch, findings_batch, impressions_batch)
-
-            loss = self.criterion(repr_image_batch, repr_findings_batch, repr_impressions_batch)
-        else:
-            image_batch = batch['image']
-            text_batch = batch['report']
-            repr_image_batch, repr_text_batch = self(image_batch, text_batch)
+        image_batch = batch['image']
+        text_batch = batch['report']
+        repr_image_batch, repr_text_batch = self(image_batch, text_batch)
         
-            loss = self.criterion(repr_image_batch, repr_text_batch)
+        loss = self.criterion(repr_image_batch, repr_text_batch)
         self.log('train_loss', loss)
 
         return {'loss': loss}
