@@ -1,9 +1,9 @@
 # Reference YAML
 name: baseline_both # Note: will override saved models
-mode: pretrain # pretrain, downstream, or evaluate
+mode: downstream # pretrain, downstream, or evaluate
 seed: 0 # Optional (Default: 0)
 debug: False # Optional (Default: False)
-batch_size: 16 # Optional (Default: 32)
+batch_size: 32 # Optional (Default: 32)
 num_workers: 4 # Optional (Default: 4)
 checkpoint_path: checkpoints/ # Optional (Default: checkpoints/)
 root_dir: data/ # Optional (Default: data/)
@@ -18,16 +18,16 @@ criterion_kwargs:
   weight: 0.75
 
 optimizer_kwargs:
-  lr: 1.e-5 # Note: to ensure floats are processed correctly in scientific format, use a decimal seperator
+  lr: 1.e-4 # Note: to ensure floats are processed correctly in scientific format, use a decimal seperator
 
 train:
-  frac: 1.0 # Optional: (Default: 1.0)
+  frac: 0.1 # Optional: (Default: 1.0)
   max_epochs: 30 # Optional (Default: 1)
   text_req: both # Optional (Default: both)
   modified_model: False
 
 downstream:
-  frac: 0.01 # Optional: (Default: 1.0)
+  frac: 1.0 # Optional: (Default: 1.0)
   dataset: MURA # MURA or CHEXPERT
-  max_epochs: 1 # Optional (Default: 1)
+  max_epochs: 30 # Optional (Default: 1)
   

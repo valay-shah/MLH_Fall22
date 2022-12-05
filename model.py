@@ -47,7 +47,7 @@ class ConVIRTLoss(nn.Module):
         image2text_loss = self.contrastive_loss(image_batch, text_batch)
         text2image_loss = self.contrastive_loss(text_batch, image_batch)
 
-        loss = torch.mean((self.weight * image2text_loss * (1 - self.weight) * text2image_loss))
+        loss = torch.mean((self.weight * image2text_loss + (1 - self.weight) * text2image_loss))
         return loss
 
 class ConVIRT(nn.Module):
@@ -77,20 +77,87 @@ class ConVIRT(nn.Module):
 
         return repr_image_batch, repr_text_batch
 
-class Pretrain(pl.LightningModule):
-    def __init__(self, model_kwargs: Dict, criterion_kwargs: Dict, optimizer_kwargs: Dict):
+class ModifiedConVIRTLoss(nn.Module):
+
+    def __init__(self, temperature: float = 1.0, weight: float = 0.99):
         super().__init__()
-        self.model = ConVIRT(**model_kwargs)
-        self.criterion = ConVIRTLoss(**criterion_kwargs)
+        self.contrastive_loss = ContrastiveLoss(temperature)
+        self.weight = weight
+
+    def forward(self, image_batch: torch.Tensor, findings_batch: torch.Tensor, impressions_batch):
+        findings2impressions_loss = self.contrastive_loss(findings_batch, impressions_batch)
+        impressions2findings_loss = self.contrastive_loss(impressions_batch, findings_batch)
+
+        text_batch = torch.mean(torch.stack([findings_batch, impressions_batch], axis=0), axis=0)
+
+        image2text_loss = self.contrastive_loss(image_batch, text_batch)
+        text2image_loss = self.contrastive_loss(text_batch, image_batch)
+
+        local_loss = torch.mean((self.weight * findings2impressions_loss + (1 - self.weight) * impressions2findings_loss))
+        global_loss = torch.mean((self.weight * image2text_loss + (1 - self.weight) * text2image_loss))
+        loss = global_loss + local_loss
+
+        return loss
+
+class ModifiedConVIRT(nn.Module):
+
+    def __init__(self, image_encoder: str = 'resnet18', hidden_dim: int = 1024, out_dim: int = 512):
+        super().__init__()
+        self.image_out_features, self.image_encoder = get_image_encoder(image_encoder)
+        self.text_encoder = AutoModel.from_pretrained('emilyalsentzer/Bio_ClinicalBERT')
+        self.out_dim = out_dim
+        self.image_projector = nn.Sequential(
+            nn.Linear(self.image_out_features, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, out_dim))
+
+        self.text_projector = nn.Sequential(
+            nn.Linear(768, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, out_dim))
+
+    def forward(self, image_batch: torch.Tensor, findings_batch: torch.Tensor, impressions_batch: torch.Tensor):
+        hidden_image_batch = self.image_encoder(image_batch).squeeze(-1).squeeze(-1)
+        repr_image_batch = self.image_projector(hidden_image_batch)
+
+        findings_batch = {k: v.squeeze(1) for k, v in findings_batch.items()}
+        impressions_batch = {k: v.squeeze(1) for k, v in impressions_batch.items()}
+
+        hidden_findings_batch = self.text_encoder(**findings_batch).pooler_output
+        repr_findings_batch = self.text_projector(hidden_findings_batch)
+
+        hidden_impressions_batch = self.text_encoder(**impressions_batch).pooler_output
+        repr_impressions_batch = self.text_projector(hidden_impressions_batch)
+
+        return repr_image_batch, repr_findings_batch, repr_impressions_batch
+
+class Pretrain(pl.LightningModule):
+    def __init__(self, model_kwargs: Dict, criterion_kwargs: Dict, optimizer_kwargs: Dict, modified_model: bool = False):
+        super().__init__()
+        self.modified_model = modified_model
+        if self.modified_model:
+            self.model = ModifiedConVIRT(**model_kwargs)
+            self.criterion = ModifiedConVIRTLoss(**criterion_kwargs)
+        else:
+            self.model = ConVIRT(**model_kwargs)
+            self.criterion = ConVIRTLoss(**criterion_kwargs)
         self.optimizer_kwargs = optimizer_kwargs
         self.save_hyperparameters()
 
     def training_step(self, batch: Dict[str, Union[torch.Tensor, Dict]], batch_idx: int) -> Dict:
-        image_batch = batch['image']
-        text_batch = batch['report']
+        if self.modified_model:
+            image_batch = batch['image']
+            findings_batch = batch['findings']
+            impressions_batch = batch['impressions']
+            repr_image_batch, repr_findings_batch, repr_impressions_batch = self(image_batch, findings_batch, impressions_batch)
 
-        repr_image_batch, repr_text_batch = self(image_batch, text_batch)
-        loss = self.criterion(repr_image_batch, repr_text_batch)
+            loss = self.criterion(repr_image_batch, repr_findings_batch, repr_impressions_batch)
+        else:
+            image_batch = batch['image']
+            text_batch = batch['report']
+            repr_image_batch, repr_text_batch = self(image_batch, text_batch)
+        
+            loss = self.criterion(repr_image_batch, repr_text_batch)
         self.log('train_loss', loss)
 
         return {'loss': loss}
@@ -118,12 +185,11 @@ class Pretrain(pl.LightningModule):
         return self.model(image_batch, text_batch)
 
 class Downstream(pl.LightningModule):
-    def __init__(self, model_checkpoint: str, finetune: bool, optimizer_kwargs: Dict):
+    def __init__(self, model_checkpoint: str, optimizer_kwargs: Dict, modified_model: bool = False):
         super().__init__()
-        convirt_model = Pretrain.load_from_checkpoint(model_checkpoint).model
+        convirt_model = torch.load(model_checkpoint)['model']
         self.image_encoder = convirt_model.image_encoder
         out_dim = convirt_model.out_dim
-        self.finetune = finetune
         self.optimizer_kwargs = optimizer_kwargs
         self.classifier = nn.Linear(out_dim, 1)
 
@@ -186,14 +252,8 @@ class Downstream(pl.LightningModule):
         return optim.AdamW(self.parameters(), **self.optimizer_kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Only finetune image encoder weights if set, otherwise just use for inference
-        if self.finetune:
-            self.image_encoder.train()
-            h = self.image_encoder(x).squeeze(-1).squeeze(-1)
-        else:
-            self.image_encoder.eval()
-            with torch.no_grad():
-                h = self.image_encoder(x).squeeze(-1).squeeze(-1)
+        self.image_encoder.train()
+        h = self.image_encoder(x).squeeze(-1).squeeze(-1)
         
         logits = self.classifier(h)
         return logits

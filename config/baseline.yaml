@@ -24,10 +24,10 @@ train:
   frac: 0.1 # Optional: (Default: 1.0)
   max_epochs: 30 # Optional (Default: 1)
   text_req: both # Optional (Default: both)
+  modified_model: False
 
 downstream:
   frac: 0.01 # Optional: (Default: 1.0)
   dataset: MURA # MURA or CHEXPERT
-  finetune: False # Optional (Default: True)
   max_epochs: 1 # Optional (Default: 1)
   

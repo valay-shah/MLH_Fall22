@@ -42,11 +42,11 @@ def run(args: argparse.Namespace):
     train_max_epochs = train_config.get('max_epochs', 1)
     train_frac = train_config.get('frac', 1.0)
     train_text_req = train_config.get('text_req', 'both')
+    train_modified_model = train_config.get('modified_model', False)
 
     # Downtream Configuration
     downstream_config = settings.get('downstream', dict())
     downstream_max_epochs = downstream_config.get('max_epochs', 1)
-    finetune = downstream_config.get('finetune', True)
     dataset = downstream_config.get('dataset')
 
     # Setup Reproducibility & Debugging
@@ -70,7 +70,8 @@ def run(args: argparse.Namespace):
         model = Pretrain(
             model_kwargs=model_kwargs,
             criterion_kwargs=criterion_kwargs,
-            optimizer_kwargs=optimizer_kwargs)
+            optimizer_kwargs=optimizer_kwargs,
+            modified_model=train_modified_model)
         mimic_cxr_root_dir = '/vast/vs2393/mlh_dataset/' # root_dir of MIMIC_CXR data is in /vast (Comment out to inherit otherwise)
         datamodule = PretrainDataModule(
             root_dir=mimic_cxr_root_dir,
@@ -83,7 +84,8 @@ def run(args: argparse.Namespace):
         model = Downstream(
             model_checkpoint=model_checkpoint,
             finetune=finetune,
-            optimizer_kwargs=optimizer_kwargs)
+            optimizer_kwargs=optimizer_kwargs,
+            modified_model=train_modified_model)
         datamodule = DownstreamDataModule(
             dataset=dataset,
             root_dir=root_dir,
@@ -95,10 +97,10 @@ def run(args: argparse.Namespace):
         raise ValueError(f'Unknown mode {mode}')
 
     # Initialize Callbacks
-    early_stop_callback = EarlyStopping(monitor='train_loss', patience=2, verbose=False, mode='min')
+    early_stop_callback = EarlyStopping(monitor='val_loss', patience=2, verbose=False, mode='min')
     dirpath = os.path.join(checkpoint_path, experiment_name)
     model_checkpoint = ModelCheckpoint(
-        monitor='train_loss',
+        monitor='train_loss' if mode == 'pretrain' else 'val_loss',
         save_top_k=1, 
         mode='min',
         dirpath=dirpath,
@@ -115,8 +117,7 @@ def run(args: argparse.Namespace):
         strategy='ddp',
         devices=-1,
         auto_select_gpus=True,
-        #callbacks=[model_checkpoint, early_stop_callback, lr_monitor],
-        callbacks=[model_checkpoint, lr_monitor],
+        callbacks=[model_checkpoint, lr_monitor] if mode == 'pretrain' else [model_checkpoint, early_stop_callback, lr_monitor],
         deterministic=True,
         logger=wandb_logger)
     

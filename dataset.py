@@ -243,11 +243,13 @@ class MIMIC_CXR(utils.data.Dataset):
         root_dir_txt: str = '/vast/vs2393/mlh_dataset/',
         text_req: str = 'both', # this is helpful in deciding what text we want
         image_transform: Optional[Callable] = None, 
-        text_transform: Optional[Callable] = None):
+        text_transform: Optional[Callable] = None,
+        separate_sections: bool = False):
         self.root_dir_img = root_dir_img
         self.root_dir_txt = root_dir_txt
         self.text_req = text_req
         self.split = split
+        self.separate_sections = separate_sections
         self.df_whole = pd.read_csv(os.path.join(self.root_dir_txt, "cxr-record-list.csv"))   ##/home/vs2393/mlh/MLH_Fall22/dataset.py
         row_size = self.df_whole.shape[0]
         self.df = self.df_whole
@@ -326,10 +328,17 @@ class MIMIC_CXR(utils.data.Dataset):
 
         else:
             if fin_start and imp_start:
-                imp_fin = findings + impression
-                imp_fin_session = tokenized_session(imp_fin)
-                tokenized_impression = self.tokenizer(imp_fin_session, padding='max_length', truncation=True, max_length=512, return_tensors='pt')
-                return {'image': image, 'report': tokenized_impression}
+                if self.separate_sections:
+                    impression = tokenized_session(impression)
+                    tokenized_impression = self.tokenizer(impression, padding='max_length', truncation=True, max_length=512, return_tensors='pt')
+                    findings = tokenized_session(findings)
+                    tokenized_finding = self.tokenizer(findings, padding='max_length', truncation=True, max_length=512, return_tensors='pt')
+                    return {'image': image, 'impressions': tokenized_impression, 'findings': tokenized_finding}
+                else:
+                    imp_fin = findings + impression
+                    imp_fin_session = tokenized_session(imp_fin)
+                    tokenized_impression = self.tokenizer(imp_fin_session, padding='max_length', truncation=True, max_length=512, return_tensors='pt')
+                    return {'image': image, 'report': tokenized_impression}
         
             
 class CHEXPERT(utils.data.Dataset):
