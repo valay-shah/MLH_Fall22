@@ -1,5 +1,6 @@
 from dataset import PretrainDataModule, DownstreamDataModule
 from model import Pretrain, ModifiedPretrain, Downstream
+from utils import EarlyStoppingWithWarmup
 
 import torch
 from torch import nn, optim, utils
@@ -65,7 +66,8 @@ def run(args: argparse.Namespace):
 
     # Initialize Lightning Module and Data Module
     os.environ['TOKENIZERS_PARALLELISM'] = 'false' # https://github.com/huggingface/transformers/issues/5486
-
+    #os.environ['NCCL_DEBUG'] = 'INFO' # https://github.com/Lightning-AI/lightning/issues/10471
+    
     if mode == 'pretrain':
         module = ModifiedPretrain if train_modified_model else Pretrain
         model = module(
@@ -97,7 +99,7 @@ def run(args: argparse.Namespace):
 
     # Initialize Callbacks
     # Remove?
-    early_stop_callback = EarlyStopping(monitor='val_loss', patience=2, verbose=False, mode='min')
+    early_stop_callback = EarlyStoppingWithWarmup(warmup=10, monitor='val_f1', patience=3, verbose=False, mode='max')
     dirpath = os.path.join(checkpoint_path, experiment_name)
     model_checkpoint = ModelCheckpoint(
         monitor='train_loss' if mode == 'pretrain' else 'val_loss',
@@ -116,8 +118,9 @@ def run(args: argparse.Namespace):
         accelerator='gpu',
         strategy='ddp',
         devices=-1,
+        num_nodes=1,
         auto_select_gpus=True,
-        callbacks=[model_checkpoint, lr_monitor],
+        callbacks=[model_checkpoint, lr_monitor] if mode == 'pretrain' else [model_checkpoint, lr_monitor, early_stop_callback],
         deterministic=True,
         logger=wandb_logger)
     

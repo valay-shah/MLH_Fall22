@@ -1,10 +1,10 @@
 # Reference YAML
-name: baseline_both # Note: will override saved models
+name: baseline_multi_gpu # Note: will override saved models
 mode: pretrain # pretrain, downstream, or evaluate
 seed: 0 # Optional (Default: 0)
 debug: False # Optional (Default: False)
-batch_size: 16 # Optional (Default: 32)
-num_workers: 4 # Optional (Default: 4)
+batch_size: 32 # Optional (Default: 32)
+num_workers: 1 # Optional (Default: 4)
 checkpoint_path: checkpoints/ # Optional (Default: checkpoints/)
 root_dir: data/ # Optional (Default: data/)
 

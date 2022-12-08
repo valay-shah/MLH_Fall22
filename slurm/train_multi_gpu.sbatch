@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1              
+#SBATCH --ntasks-per-node=4              
 #SBATCH --cpus-per-task=4                
 #SBATCH --time=30:00:00
 #SBATCH --mem=32GB
@@ -21,4 +21,4 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK;
 source /share/apps/anaconda3/2020.07/etc/profile.d/conda.sh;
 conda activate /scratch/csp9835/penv/;
 export PATH=/scratch/csp9835/penv/bin:$PATH;
-python experiment.py --experiment $experiment_config
+srun python experiment.py --experiment $experiment_config

@@ -13,6 +13,29 @@ global PAD_IDX, UNK_IDX
 UNK_IDX = 0
 PAD_IDX = 1
 
+# https://github.com/Lightning-AI/lightning/issues/2644
+from pytorch_lightning.callbacks import EarlyStopping
+
+class EarlyStoppingWithWarmup(EarlyStopping):
+    """
+    EarlyStopping, except don't watch the first `warmup` epochs.
+    """
+    def __init__(self, warmup=10, **kwargs):
+        super().__init__(**kwargs)
+        self.warmup = warmup
+    
+    def on_train_epoch_end(self, trainer, pl_module):
+        if trainer.current_epoch < self.warmup:
+            return
+        else:
+            self._run_early_stopping_check(trainer)
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        if trainer.current_epoch < self.warmup:
+            return
+        else:
+            self._run_early_stopping_check(trainer)
+
 def fin_imp_place(lines):
     """
     Find where FINDINGS and IMPRESSION start and end in a report

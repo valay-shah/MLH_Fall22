@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1              
 #SBATCH --cpus-per-task=4                
-#SBATCH --time=04:00:00
+#SBATCH --time=01:00:00
 #SBATCH --mem=32GB
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=mlh_baseline_downstream_fin_mura
