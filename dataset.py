@@ -177,9 +177,10 @@ class MURA(utils.data.Dataset):
         return sample
 
 class PretrainDataModule(pl.LightningDataModule):
-    def __init__(self, root_dir: Optional[str] = None, batch_size: int = 32, num_workers: int = 2, frac: float = 1.0, text_req : str = 'both'):
+    def __init__(self, root_dir: Optional[str] = None, batch_size: int = 32, num_workers: int = 2, frac: float = 1.0, text_req : str = 'both', separate_sections: bool = False):
         super().__init__()
         self.root_dir = root_dir
+        self.separate_sections = separate_sections
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.frac = frac
@@ -212,7 +213,7 @@ class PretrainDataModule(pl.LightningDataModule):
         }
 
     def setup(self, stage: str):
-        self.train_dataset = MIMIC_CXR(split='train', text_req=self.text_req, image_transform=self.train_transform['image'])
+        self.train_dataset = MIMIC_CXR(split='train', separate_sections=self.separate_sections, text_req=self.text_req, image_transform=self.train_transform['image'])
         #self.valid_dataset = MIMIC_CXR(split='valid', text_req=self.text_req, image_transform=self.valid_transform['image'])
 
         self.train_dataset = self.get_dataset_split(self.train_dataset, frac=self.frac)

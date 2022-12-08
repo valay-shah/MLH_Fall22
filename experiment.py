@@ -79,7 +79,8 @@ def run(args: argparse.Namespace):
             root_dir=mimic_cxr_root_dir,
             batch_size=batch_size, 
             num_workers=num_workers,
-            frac=train_frac)
+            frac=train_frac,
+            separate_sections=train_modified_model)
 
     elif mode == 'downstream':
         model_checkpoint = os.path.join(checkpoint_path, experiment_name, 'pretrain.ckpt')
@@ -120,7 +121,8 @@ def run(args: argparse.Namespace):
         devices=-1,
         num_nodes=1,
         auto_select_gpus=True,
-        callbacks=[model_checkpoint, lr_monitor] if mode == 'pretrain' else [model_checkpoint, lr_monitor, early_stop_callback],
+        #callbacks=[model_checkpoint, lr_monitor] if mode == 'pretrain' else [model_checkpoint, lr_monitor, early_stop_callback],
+        callbacks=[model_checkpoint, lr_monitor],
         deterministic=True,
         logger=wandb_logger)
     

@@ -140,29 +140,23 @@ class ModifiedPretrain(pl.LightningModule):
         self.save_hyperparameters()
 
     def training_step(self, batch: Dict[str, Union[torch.Tensor, Dict]], batch_idx: int) -> Dict:
-        if self.modified_model:
-            image_batch = batch['image']
-            findings_batch = batch['findings']
-            impressions_batch = batch['impressions']
-            repr_image_batch, repr_findings_batch, repr_impressions_batch = self(image_batch, findings_batch, impressions_batch)
+        image_batch = batch['image']
+        findings_batch = batch['findings']
+        impressions_batch = batch['impressions']
+        repr_image_batch, repr_findings_batch, repr_impressions_batch = self(image_batch, findings_batch, impressions_batch)
 
-            loss = self.criterion(repr_image_batch, repr_findings_batch, repr_impressions_batch)
-        else:
-            image_batch = batch['image']
-            text_batch = batch['report']
-            repr_image_batch, repr_text_batch = self(image_batch, text_batch)
-        
-            loss = self.criterion(repr_image_batch, repr_text_batch)
+        loss = self.criterion(repr_image_batch, repr_findings_batch, repr_impressions_batch)
         self.log('train_loss', loss)
 
         return {'loss': loss}
 
     def validation_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> Dict:
         image_batch = batch['image']
-        text_batch = batch['report']
+        findings_batch = batch['findings']
+        impressions_batch = batch['impressions']
+        repr_image_batch, repr_findings_batch, repr_impressions_batch = self(image_batch, findings_batch, impressions_batch)
 
-        repr_image_batch, repr_text_batch = self(image_batch, text_batch)
-        loss = self.criterion(repr_image_batch, repr_text_batch)
+        loss = self.criterion(repr_image_batch, repr_findings_batch, repr_impressions_batch)
         self.log('val_loss', loss)
 
         return {'val_loss': loss}
@@ -176,8 +170,8 @@ class ModifiedPretrain(pl.LightningModule):
     def configure_optimizers(self):
         return optim.AdamW(self.parameters(), **self.optimizer_kwargs)
 
-    def forward(self, image_batch: torch.Tensor, text_batch: Dict[str, torch.Tensor]) -> torch.Tensor:
-        return self.model(image_batch, text_batch)
+    def forward(self, image_batch: torch.Tensor, findings_batch: Dict[str, torch.Tensor], impressions_batch: Dict[str, torch.Tensor]) -> torch.Tensor:
+        return self.model(image_batch, findings_batch, impressions_batch)
 
 class Pretrain(pl.LightningModule):
     def __init__(self, model_kwargs: Dict, criterion_kwargs: Dict, optimizer_kwargs: Dict):
@@ -294,8 +288,9 @@ class Downstream(pl.LightningModule):
         return optim.AdamW(self.parameters(), **self.optimizer_kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        self.image_encoder.train()
-        h = self.image_encoder(x).squeeze(-1).squeeze(-1)
+        self.image_encoder.eval()
+        with torch.no_grad():
+            h = self.image_encoder(x).squeeze(-1).squeeze(-1)
         
         logits = self.classifier(h)
         return logits
