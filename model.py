@@ -79,10 +79,11 @@ class ConVIRT(nn.Module):
 
 class ModifiedConVIRTLoss(nn.Module):
 
-    def __init__(self, temperature: float = 1.0, weight: float = 0.99):
+    def __init__(self, scale: float = 0.75, temperature: float = 1.0, weight: float = 0.99):
         super().__init__()
         self.contrastive_loss = ContrastiveLoss(temperature)
         self.weight = weight
+        self.scale = scale
 
     def forward(self, image_batch: torch.Tensor, findings_batch: torch.Tensor, impressions_batch):
         findings2impressions_loss = self.contrastive_loss(findings_batch, impressions_batch)
@@ -95,7 +96,7 @@ class ModifiedConVIRTLoss(nn.Module):
 
         local_loss = torch.mean((self.weight * findings2impressions_loss + (1 - self.weight) * impressions2findings_loss))
         global_loss = torch.mean((self.weight * image2text_loss + (1 - self.weight) * text2image_loss))
-        loss = global_loss + local_loss
+        loss = self.scale * global_loss + (1 - self.scale) * local_loss
 
         return loss
 
