@@ -112,7 +112,7 @@ def run(args: argparse.Namespace):
         filename=mode)
     lr_monitor = LearningRateMonitor()
 
-    if mode == 'pretrain' or finetune:
+    if mode == 'pretrain':
         callbacks = [model_checkpoint, lr_monitor]
     else:
         callbacks = [model_checkpoint, lr_monitor, early_stop_callback]
