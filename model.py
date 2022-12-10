@@ -214,12 +214,14 @@ class Pretrain(pl.LightningModule):
         return self.model(image_batch, text_batch)
 
 class Downstream(pl.LightningModule):
-    def __init__(self, model_checkpoint: str, optimizer_kwargs: Dict, modified_model: bool = False, num_classes: int = 2):
+    def __init__(self, model_checkpoint: str, optimizer_kwargs: Dict, modified_model: bool = False, num_classes: int = 2, finetune: bool = False):
         super().__init__()
+        self.finetune = finetune
         pretrain_module = ModifiedPretrain if modified_model else Pretrain
         convirt_model = pretrain_module.load_from_checkpoint(model_checkpoint).model
         self.image_encoder = convirt_model.image_encoder
         out_dim = convirt_model.out_dim
+        del convirt_model
         self.optimizer_kwargs = optimizer_kwargs
         self.num_classes = 1 if num_classes == 2 else num_classes
         self.f1 = BinaryF1Score() if self.num_classes == 1 else F1Score(task='multiclass', num_classes=self.num_classes)
@@ -288,9 +290,12 @@ class Downstream(pl.LightningModule):
         return optim.AdamW(self.parameters(), **self.optimizer_kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        self.image_encoder.eval()
-        with torch.no_grad():
+        if not self.finetune or self.global_step < 200:
+            self.image_encoder.eval()
+            with torch.no_grad():
+                h = self.image_encoder(x).squeeze(-1).squeeze(-1)
+        else:
             h = self.image_encoder(x).squeeze(-1).squeeze(-1)
-        
+
         logits = self.classifier(h)
         return logits

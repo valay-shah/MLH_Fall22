@@ -27,7 +27,7 @@ train:
   modified_model: False
 
 downstream:
-  frac: 1.0 # Optional: (Default: 1.0)
+  frac: 0.1 # Optional: (Default: 1.0)
   dataset: MURA # MURA or CHEXPERT
   max_epochs: 30 # Optional (Default: 1)
-  
+  finetune: True 

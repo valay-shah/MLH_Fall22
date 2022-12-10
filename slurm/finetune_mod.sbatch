@@ -3,12 +3,12 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1              
 #SBATCH --cpus-per-task=4                
-#SBATCH --time=48:00:00
+#SBATCH --time=01:00:00
 #SBATCH --mem=32GB
 #SBATCH --gres=gpu:a100:1
-#SBATCH --job-name=mlh_baseline_modified
-#SBATCH --output=slurm/jobs/baseline_modified.out
-#SBATCH --error=slurm/jobs/baseline_modified.err
+#SBATCH --job-name=mlh_baseline_downstream_mod_mura
+#SBATCH --output=slurm/jobs/baseline_downstream_mod_mura.out
+#SBATCH --error=slurm/jobs/baseline_downstream_mod_mura.err
 
 experiment_config=$1
 

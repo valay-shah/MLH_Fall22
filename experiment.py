@@ -49,6 +49,7 @@ def run(args: argparse.Namespace):
     downstream_config = settings.get('downstream', dict())
     downstream_max_epochs = downstream_config.get('max_epochs', 1)
     dataset = downstream_config.get('dataset')
+    finetune = downstream_config.get('finetune', False)
 
     # Setup Reproducibility & Debugging
     pl.seed_everything(seed, workers=True)
@@ -87,7 +88,8 @@ def run(args: argparse.Namespace):
         model = Downstream(
             model_checkpoint=model_checkpoint,
             optimizer_kwargs=optimizer_kwargs,
-            modified_model=train_modified_model)
+            modified_model=train_modified_model,
+            finetune=finetune)
         datamodule = DownstreamDataModule(
             dataset=dataset,
             root_dir=root_dir,
@@ -100,7 +102,7 @@ def run(args: argparse.Namespace):
 
     # Initialize Callbacks
     # Remove?
-    early_stop_callback = EarlyStoppingWithWarmup(warmup=10, monitor='val_f1', patience=3, verbose=False, mode='max')
+    early_stop_callback = EarlyStoppingWithWarmup(warmup=5, monitor='val_f1', patience=5, verbose=False, mode='max')
     dirpath = os.path.join(checkpoint_path, experiment_name)
     model_checkpoint = ModelCheckpoint(
         monitor='train_loss' if mode == 'pretrain' else 'val_loss',
@@ -110,6 +112,10 @@ def run(args: argparse.Namespace):
         filename=mode)
     lr_monitor = LearningRateMonitor()
 
+    if mode == 'pretrain' or finetune:
+        callbacks = [model_checkpoint, lr_monitor]
+    else:
+        callbacks = [model_checkpoint, lr_monitor, early_stop_callback]
     # Train Model
     trainer = pl.Trainer(
         limit_train_batches=limit_train_batches,
@@ -121,7 +127,6 @@ def run(args: argparse.Namespace):
         devices=-1,
         num_nodes=1,
         auto_select_gpus=True,
-        #callbacks=[model_checkpoint, lr_monitor] if mode == 'pretrain' else [model_checkpoint, lr_monitor, early_stop_callback],
         callbacks=[model_checkpoint, lr_monitor],
         deterministic=True,
         logger=wandb_logger)
