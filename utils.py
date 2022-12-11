@@ -310,15 +310,14 @@ def process_chexpert(data):
 
     label_map = {}
     i = 0
+    for category in categories:
+        label_map[category] = i
+        i += 1
     
     def categorize(data):
         for category in categories:
             if data[category] == np.float64(1):
                 return label_map[category]
-
-    for category in categories:
-        label_map[category] = str(i)
-        i += 1
 
     data['Class'] = data.apply(lambda row: categorize(row), axis=1)
 
