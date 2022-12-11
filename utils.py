@@ -284,6 +284,8 @@ class CXRDataset(Dataset):
 
         return token_idx
 
+    
+
 def process_chexpert(data):
     """
     Processed CheXpert dataset
@@ -303,6 +305,24 @@ def process_chexpert(data):
 
     #Fill NA in 'No Finding' Column - 1: abnormality detected; 0: no abnormality
     data['No Finding'].fillna(0, inplace=True)
+
+    categories = ['No Finding','Atelectasis', 'Cardiomegaly', 'Edema', 'Fracture', 'Pleural Effusion', 'Pneumonia', 'Pneumothorax']
+
+    label_map = {}
+    i = 0
+    
+    def categorize(data):
+        for category in categories:
+            if data[category] == np.float64(1):
+                return label_map[category]
+
+    for category in categories:
+        label_map[category] = str(i)
+        i += 1
+
+    data['Class'] = data.apply(lambda row: categorize(row), axis=1)
+
+    data.dropna(subset=['Class'], inplace=True)
 
     return data
 
