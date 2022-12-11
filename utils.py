@@ -283,3 +283,45 @@ class CXRDataset(Dataset):
         token_idx = self.indexed_tokens[key][:self.max_sentence_length]
 
         return token_idx
+
+    
+
+def process_chexpert(data):
+    """
+    Processed CheXpert dataset
+
+    Parameters:
+    ----------
+    data: DataFrame
+        Train / Valid CheXpert dataset
+
+    Returns:
+    --------
+    data: DataFrame
+        Processed train/valid CheXpert dataset
+    """      
+    #Filter categories the original paper used
+    data = data[['Path', 'No Finding','Atelectasis', 'Cardiomegaly', 'Edema', 'Fracture', 'Pleural Effusion', 'Pneumonia', 'Pneumothorax']]
+
+    #Fill NA in 'No Finding' Column - 1: abnormality detected; 0: no abnormality
+    data['No Finding'].fillna(0, inplace=True)
+
+    categories = ['No Finding','Atelectasis', 'Cardiomegaly', 'Edema', 'Fracture', 'Pleural Effusion', 'Pneumonia', 'Pneumothorax']
+
+    label_map = {}
+    i = 0
+    for category in categories:
+        label_map[category] = i
+        i += 1
+    
+    def categorize(data):
+        for category in categories:
+            if data[category] == np.float64(1):
+                return label_map[category]
+
+    data['Class'] = data.apply(lambda row: categorize(row), axis=1)
+
+    data.dropna(subset=['Class'], inplace=True)
+
+    return data
+

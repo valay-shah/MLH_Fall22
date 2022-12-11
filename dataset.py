@@ -14,8 +14,8 @@ import random
 import re
 from typing import Callable, Dict, List, Literal, Optional
 
-from utils import tokenized_session
-from utils import fin_imp_place
+from utils import tokenized_session, fin_imp_place, process_chexpert
+
 
 
 class SquarePad(nn.Module):
@@ -356,10 +356,20 @@ class CHEXPERT(utils.data.Dataset):
 
         self.transform = transform
 
-        # TODO: Add test split (similar to MURA?)
+        #Split train, valid and test  dataset
+        train = pd.read_csv(os.path.join(self.root_dir, 'train.csv'))
+        valid_test = pd.read_csv(os.path.join(self.root_dir, 'valid.csv')) 
+        valid = valid_test.sample(frac=0.8, random_state=42) #split valid and test data from valid set with 80/20 split
+        test =[~valid_test.isin(valid)].dropna(how = 'all') 
+
+        processed_train = process_chexpert(train)
+        processed_valid = process_chexpert(valid)
+        processed_test = process_chexpert(test)
+        
         self.data = {
-            'train': pd.read_csv(os.path.join(self.root_dir, 'train.csv')),
-            'valid': pd.read_csv(os.path.join(self.root_dir, 'valid.csv'))
+            'train': processed_train,
+            'valid': processed_valid,
+            'test': processed_test
         }
 
     def __len__(self) -> int:
