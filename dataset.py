@@ -359,12 +359,13 @@ class CHEXPERT(utils.data.Dataset):
         #Split train, valid and test  dataset
         train = pd.read_csv(os.path.join(self.root_dir, 'train.csv'))
         valid_test = pd.read_csv(os.path.join(self.root_dir, 'valid.csv')) 
-        valid = valid_test.sample(frac=0.8, random_state=42) #split valid and test data from valid set with 80/20 split
-        test =[~valid_test.isin(valid)].dropna(how = 'all') 
-
+        
         processed_train = process_chexpert(train)
-        processed_valid = process_chexpert(valid)
-        processed_test = process_chexpert(test)
+        processed_valid_test = process_chexpert(valid_test)
+
+        processed_valid = processed_valid_test.sample(frac=0.8, random_state=42) #split valid and test data from valid set with 80/20 split
+        processed_test = processed_valid_test.drop(processed_valid.index)
+       
         
         self.data = {
             'train': processed_train,
@@ -379,12 +380,17 @@ class CHEXPERT(utils.data.Dataset):
         if isinstance(index, torch.Tensor):
             index = int(index.item())
         # TODO: Get label
-        image_path = self.data[self.split]['Path'].loc[index]
+        image_path = self.data[self.split]['Path'].iloc[index]
         image_path = os.path.join(os.path.dirname(self.root_dir), image_path)
         image = Image.open(image_path).convert('RGB')
         if self.transform is not None:
             image = self.transform(image)
 
-        sample = {'image': image}
+        study_dir = os.path.dirname(image_path) + '/'
+        labels = self.data[self.split]['Class']
+        label = int(labels.iloc[index])
+
+        sample = {'image': image,
+                  'label': label}
 
         return sample

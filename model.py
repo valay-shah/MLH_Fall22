@@ -215,7 +215,7 @@ class Pretrain(pl.LightningModule):
         return self.model(image_batch, text_batch)
 
 class Downstream(pl.LightningModule):
-    def __init__(self, model_checkpoint: str, optimizer_kwargs: Dict, modified_model: bool = False, num_classes: int = 2, finetune: bool = False):
+    def __init__(self, model_checkpoint: str, optimizer_kwargs: Dict, modified_model: bool = False, num_classes: int = 8, finetune: bool = False):
         super().__init__()
         self.finetune = finetune
         pretrain_module = ModifiedPretrain if modified_model else Pretrain
@@ -225,16 +225,16 @@ class Downstream(pl.LightningModule):
         del convirt_model
         self.optimizer_kwargs = optimizer_kwargs
         self.num_classes = 1 if num_classes == 2 else num_classes
-        self.f1 = BinaryF1Score() if self.num_classes == 1 else F1Score(task='multiclass', num_classes=self.num_classes)
-        self.recall = BinaryRecall() if self.num_classes == 1 else Recall(task='multiclass', average='macro', num_classes=self.num_classes)
-        self.prec = BinaryPrecision() if self.num_classes == 1 else Precision(task='multiclass', average='macro', num_classes=self.num_classes)
+        self.f1 = BinaryF1Score() if self.num_classes == 1 else F1Score(task='multiclass', num_classes=self.num_classes, top_k = 1)
+        self.recall = BinaryRecall() if self.num_classes == 1 else Recall(task='multiclass', average='macro', num_classes=self.num_classes, top_k = 1)
+        self.prec = BinaryPrecision() if self.num_classes == 1 else Precision(task='multiclass', average='macro', num_classes=self.num_classes,  top_k = 1)
         self.classifier = nn.Linear(out_dim, self.num_classes)
         self.loss_func = F.binary_cross_entropy_with_logits if self.num_classes == 1 else F.cross_entropy
 
     def training_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> Dict:
         images = batch['image']
         y = batch['label'].unsqueeze(1).float()
-
+        y = torch.reshape(y, (-1,)).type(torch.LongTensor).to('cuda:0')
         y_hat = self(images)
         loss = self.loss_func(y_hat, y)
         f1 = self.f1(y_hat, y)
@@ -247,10 +247,15 @@ class Downstream(pl.LightningModule):
         return {'loss': loss}
 
     def validation_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> Dict:
+        
         images = batch['image']
         y = batch['label'].unsqueeze(1).float()
+        y = torch.reshape(y, (-1,)).type(torch.LongTensor).to('cuda:0')
 
         y_hat = self(images)
+       
+
+
         loss = self.loss_func(y_hat, y)
         f1 = self.f1(y_hat, y)
         prec = self.prec(y_hat, y)
