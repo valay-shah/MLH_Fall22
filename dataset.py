@@ -379,7 +379,6 @@ class CHEXPERT(utils.data.Dataset):
     def __getitem__(self, index: int) -> Dict:
         if isinstance(index, torch.Tensor):
             index = int(index.item())
-        # TODO: Get label
         image_path = self.data[self.split]['Path'].iloc[index]
         image_path = os.path.join(os.path.dirname(self.root_dir), image_path)
         image = Image.open(image_path).convert('RGB')
