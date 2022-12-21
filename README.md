@@ -4,7 +4,7 @@ If it is the first time using Weights & Biases, then `wandb login` should be exe
 
 ## Running an Experiment
 ```bash
-    conda activate /scratch/csp9835/penv
+    conda activate /path/to/conda/environment
     python experiment.py --experiment config/reference.yaml
 ```
 
@@ -15,6 +15,7 @@ Then, execute the following:
     sbatch slurm/train.sbatch config/reference.yaml
 ```
 where `slurm/train.sbatch` is the type of SLURM job and `config/reference.yaml` is the experiment YAML configuration.
+You may need to modify the `slurm/train.sbatch` file to point to your conda environment.
 
 ## Experiment Configuration
 This section will explain the configuration for running experiments.
